@@ -1,24 +1,67 @@
-# README
+# Nap Alarm App（仮眠アラーム）
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+## 目的（Why）
 
-Things you may want to cover:
+- 短時間（15〜60分、または最大24時間までの任意時間）の仮眠を快適にとるためのWebアラームを提供する  
+- 好きな音楽（外部URL）で起きたい  
+- アプリ不要・Webで完結するシンプルな使いやすさを目指す  
+- 将来的には Google AdSense での収益化も検討  
 
-* Ruby version
+---
 
-* System dependencies
+## 想定ユーザー（Who）
 
-* Configuration
+- 昼休みに仮眠をとる社会人  
+- 勉強中にリフレッシュしたい学生  
+- アプリを入れずにブラウザで済ませたい人  
+- 開発者本人  
 
-* Database creation
+---
 
-* Database initialization
+## 使用シーン（When/Where）
 
-* How to run the test suite
+- デスクや職場で15〜60分程度の仮眠を取りたいとき  
+- 寝る前にスマホで仮眠タイマーをセットしたいとき  
+- リモートワーク中の短い休憩を効率的に取りたいとき  
 
-* Services (job queues, cache servers, search engines, etc.)
+---
 
-* Deployment instructions
+## 機能要件（What）
 
-* ...
+| No | 機能名 | 内容 |
+|----|--------|------|
+| 1 | 仮眠時間選択 | 15・30・45・60分＋カスタム（最大24時間まで） |
+| 2 | タイマー機能 | JavaScriptでカウントダウン、時間になったら音楽再生 |
+| 3 | 音楽再生 | 任意の音楽URLを入力し、時間になったら自動再生（MP3/YouTube等） |
+| 4 | ユーザー登録 | 名前＋パスワードのみで登録、メールアドレス不要 |
+| 5 | 自動ログアウト | 最終ログインから2ヶ月でセッション削除 |
+| 6 | 履歴表示 | 過去の仮眠設定（時間＋音楽URL）を最大5件表示 |
+| 7 | 広告表示 | 仮眠中の画面下にバナー広告＋画面サイドにレスポンシブ広告 |
+
+---
+
+## 技術選定（How）
+
+| 項目 | 技術 | 理由 |
+|------|------|------|
+| バックエンド | Ruby on Rails | 認証・DB処理に強い　|
+| フロント | HTML + SCSS + JavaScript | 軽量で柔軟、見た目と動作を制御 |
+| タイマー | `setTimeout` + `<audio>` or `<iframe>` | 自動再生とアラーム機能を簡潔に実装 |
+| 音楽URL登録 | 入力フォーム + DB保存 | 好きな音楽を指定可能にするため |
+| データ保存 | PostgreSQL | 本番運用・デプロイに最適 |
+| 認証 | 独自（name + password） | 最小限の認証で手軽に使える |
+| セッション管理 | `remember_token` または `expires_at` 列 | 自動ログアウト制御 |
+| 履歴保存 | `NapHistory`モデル | 過去5件のタイマーと音楽履歴を表示 |
+| 広告 | Google AdSense（レスポンシブ広告） | ページ下部とサイドに収益導線を設置 |
+
+---
+
+## 🚀 今後の展望（拡張予定）
+
+- スヌーズ機能（再度数分後に起こす）
+- PWA対応（スマホホーム追加、オフライン動作）
+- 音量フェードイン
+- 多言語対応
+
+---
+
