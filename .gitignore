@@ -8,6 +8,7 @@
 
 # Ignore all environment files.
 /.env*
+!/.env.example
 
 # Ignore log and temp files.
 /log/*
@@ -30,7 +31,8 @@
 # Ignore asset pipeline output
 /public/assets
 
-# Ignore master key
+# Rails credentials:
+# Keep master key out of git; encrypted credentials (config/credentials.yml.enc) IS tracked.
 /config/master.key
 
 # Ignore PostgreSQL dump and backup files
@@ -41,9 +43,6 @@
 # Optional: Node and Yarn files (if using Webpacker or Vite)
 /node_modules
 /yarn-error.log
-
-# Rails credentials
-/config/credentials.yml.enc
 
 # VSCode settings
 .vscode/
@@ -58,3 +57,14 @@
 
 # SimpleCovなど使う場合
 /coverage/
+
+# Tailwind build output
+/app/assets/builds/*
+!/app/assets/builds/.keep
+
+# SQLite（念のため）
+db/*.sqlite3
+db/*.sqlite3-*
+
+# vendorにbundle入れる運用のとき
+/vendor/bundle

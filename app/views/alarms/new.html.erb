@@ -1,0 +1,32 @@
+<div class="mx-auto max-w-xl p-6">
+  <h1 class="text-2xl font-semibold">Nap Alarm</h1>
+  <% if flash[:alert] %>
+    <p class="mt-3 text-red-600"><%= flash[:alert] %></p>
+  <% end %>
+  <%= form_with url: alarm_path, method: :post, local: true, class: "mt-6 space-y-6" do |f| %>
+    <fieldset class="space-y-2">
+      <legend class="font-medium">時間（どれにする？）</legend>
+      <div class="flex flex-wrap gap-4">
+        <label class="inline-flex items-center gap-2"><%= radio_button_tag :preset, "15", true %><span>15分</span></label>
+        <label class="inline-flex items-center gap-2"><%= radio_button_tag :preset, "20" %><span>20分</span></label>
+        <label class="inline-flex items-center gap-2"><%= radio_button_tag :preset, "30" %><span>30分</span></label>
+        <label class="inline-flex items-center gap-2"><%= radio_button_tag :preset, "45" %><span>45分</span></label>
+        <label class="inline-flex items-center gap-2"><%= radio_button_tag :preset, "60" %><span>60分</span></label>
+        <label class="inline-flex items-center gap-2">
+          <%= radio_button_tag :preset, "custom" %><span>カスタム</span>
+          <div class="ml-2 inline-flex items-center gap-2">
+            <%= number_field_tag :custom_hours, 0, min: 0, max: 24, step: 1, class: "w-16 border rounded px-2 py-1" %><span>時間</span>
+            <%= number_field_tag :custom_minutes, 0, min: 0, max: 59, step: 1, class: "w-16 border rounded px-2 py-1" %><span>分</span>
+          </div>
+        </label>
+      </div>
+    </fieldset>
+    <fieldset class="space-y-2">
+      <legend class="font-medium">音楽URL（任意）</legend>
+      <p class="text-sm text-gray-600">直リンク推奨。開始ボタンは必ず押してね（自動再生規制）。</p>
+      <%= url_field_tag :music_url, nil, placeholder: "https://example.com/alarm.mp3",
+            class: "w-full border rounded px-3 py-2" %>
+    </fieldset>
+    <%= f.submit "アラーム開始へ", class: "inline-flex items-center justify-center rounded border px-4 py-2 hover:bg-gray-50" %>
+  <% end %>
+</div>
