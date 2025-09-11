@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus";
 
 export default class extends Controller {
-  static values = { endsAt: Number, musicUrl: String };
+  static values = { endsAt: Number, duration: Number, musicUrl: String };
   static targets = ["display", "audio"];
 
   connect() {
@@ -11,8 +11,14 @@ export default class extends Controller {
     this._wakeLock = null;
     this._ctx = null;
     this._osc = null;
+    this._origTitle = null;
+    this._titleBlinker = null;
 
-    this._remainingMs = Math.max(0, this.endsAtValue - Date.now());
+    // 初期表示
+    this._initialMs = this.hasDurationValue
+      ? this.durationValue
+      : Math.max(0, this.endsAtValue - Date.now());
+    this._remainingMs = this._initialMs;
     this._render(this._remainingMs);
 
     // Audio 初期化
@@ -34,10 +40,13 @@ export default class extends Controller {
     this._clear();
     document.removeEventListener("visibilitychange", this._reacquireWakeLock);
     this._releaseWakeLock();
+    this._stopAlerts();
+    this._stopSound();
   }
 
+  // === 操作系 ===
   async start() {
-    if (!this._paused) return;
+    if (!this._paused || this._remainingMs <= 0) return;
     this._paused = false;
     this._endsAtMs = Date.now() + this._remainingMs;
 
@@ -45,7 +54,7 @@ export default class extends Controller {
     this._tick();
     this._timer = setInterval(() => this._tick(), 200);
 
-    // クリック直後＝ユーザー操作のうちに要求
+    // クリック直後＝ユーザー操作中に要求
     await this._requestWakeLock();
   }
 
@@ -56,16 +65,34 @@ export default class extends Controller {
     this._remainingMs = Math.max(0, this._endsAtMs - Date.now());
     this._render(this._remainingMs);
     await this._releaseWakeLock();
+    this._stopAlerts();
   }
 
   async reset() {
     this._paused = true;
     this._clear();
-    this._remainingMs = Math.max(0, this.endsAtValue - Date.now());
-    this._render(this._remainingMs);
     this._stopSound();
     await this._releaseWakeLock();
+    this._stopAlerts();
+
+    // ★ 初期値へ
+    this._remainingMs = this._initialMs;
+    this._render(this._remainingMs);
   }
+
+  // 現状使ってはいないが、将来的に復活予定
+  // async stop() {
+  //   // 鳴ってるのを完全停止
+  //   this._paused = true;
+  //   this._clear();
+  //   this._stopSound();
+  //   this._stopAlerts();
+  //   await this._releaseWakeLock();
+
+  //   // ★ 秒数を初期値に戻す
+  //   this._remainingMs = this._initialMs;
+  //   this._render(this._remainingMs);
+  // }
 
   async testSound() {
     try {
@@ -77,6 +104,7 @@ export default class extends Controller {
     }
   }
 
+  // === 内部処理 ===
   _tick() {
     const ms = Math.max(0, this._endsAtMs - Date.now());
     this._remainingMs = ms;
@@ -106,6 +134,7 @@ export default class extends Controller {
       } else {
         await this.audioTarget.play();
       }
+      await this._notifyComplete(); // 通知・バイブ・タイトル点滅
     } catch (e) {
       this.displayTarget.textContent = "再生ボタン押して！";
     }
@@ -124,8 +153,12 @@ export default class extends Controller {
       this.audioTarget.currentTime = 0;
     } catch (_) {}
     if (this._osc) {
-      this._osc.stop();
-      this._osc.disconnect();
+      try {
+        this._osc.stop();
+      } catch (_) {}
+      try {
+        this._osc.disconnect();
+      } catch (_) {}
       this._osc = null;
     }
     if (this._ctx) {
@@ -161,9 +194,15 @@ export default class extends Controller {
     osc.start();
     this._osc = osc;
     await new Promise((res) => setTimeout(res, duration));
-    osc.stop();
-    osc.disconnect();
-    gain.disconnect();
+    try {
+      osc.stop();
+    } catch (_) {}
+    try {
+      osc.disconnect();
+    } catch (_) {}
+    try {
+      gain.disconnect();
+    } catch (_) {}
     await ctx.close();
     this._osc = null;
     this._ctx = null;
@@ -176,18 +215,19 @@ export default class extends Controller {
     }
   }
 
-  // ---- Wake Lock ----
+  // === Wake Lock ===
   async _requestWakeLock() {
     try {
       if ("wakeLock" in navigator) {
-        // 既存があれば一旦解放してから（ブラウザ差異ケア）
         if (this._wakeLock) {
-          await this._wakeLock.release().catch(() => {});
+          try {
+            await this._wakeLock.release();
+          } catch (_) {}
           this._wakeLock = null;
         }
         this._wakeLock = await navigator.wakeLock.request("screen");
         this._wakeLock.addEventListener("release", () => {
-          // 必要ならここでUI通知
+          // 必要なら UI 通知
         });
       }
     } catch (e) {
@@ -200,5 +240,53 @@ export default class extends Controller {
       await this._wakeLock?.release();
     } catch (_) {}
     this._wakeLock = null;
+  }
+
+  // === 通知・バイブ・タイトル点滅 ===
+  async _notifyComplete() {
+    // 通知
+    try {
+      if ("Notification" in window) {
+        if (Notification.permission === "default") {
+          try {
+            await Notification.requestPermission();
+          } catch (_) {}
+        }
+        if (
+          Notification.permission === "granted" &&
+          document.visibilityState === "hidden"
+        ) {
+          new Notification("⏰ アラーム", { body: "時間だよ", silent: false });
+        }
+      }
+    } catch (_) {}
+
+    // バイブ
+    try {
+      navigator.vibrate?.([400, 120, 400, 120, 400]);
+    } catch (_) {}
+
+    // タイトル点滅
+    if (!this._origTitle) this._origTitle = document.title;
+    this._stopAlerts(); // 既存を止める
+    this._titleBlinker = setInterval(() => {
+      document.title = document.title.startsWith("⏰")
+        ? this._origTitle
+        : "⏰ 時間だよ";
+    }, 900);
+
+    // フォーカス戻ったら自動停止（1回だけ）
+    const stopOnFocus = () => {
+      this._stopAlerts();
+    };
+    window.addEventListener("focus", stopOnFocus, { once: true });
+  }
+
+  _stopAlerts() {
+    if (this._titleBlinker) {
+      clearInterval(this._titleBlinker);
+      this._titleBlinker = null;
+    }
+    if (this._origTitle) document.title = this._origTitle;
   }
 }

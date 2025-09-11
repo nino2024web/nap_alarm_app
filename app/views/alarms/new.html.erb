@@ -21,11 +21,19 @@
         </label>
       </div>
     </fieldset>
-    <fieldset class="space-y-2">
+    <fieldset class="space-y-2" data-controller="sound-test">
       <legend class="font-medium">音楽URL（任意）</legend>
       <p class="text-sm text-gray-600">直リンク推奨。開始ボタンは必ず押してね（自動再生規制）。</p>
-      <%= url_field_tag :music_url, nil, placeholder: "https://example.com/alarm.mp3",
-            class: "w-full border rounded px-3 py-2" %>
+      <div class="flex items-center gap-3">
+        <%= url_field_tag :music_url, nil, placeholder: "https://example.com/alarm.mp3",
+          class: "w-full border rounded px-3 py-2",
+          data: { "sound-test-target": "input" } %>
+        <button type="button"
+            data-action="sound-test#test"
+            class="inline-flex items-center justify-center rounded border px-3 py-2 hover:bg-gray-50">
+          音をテスト
+        </button>
+      </div>
     </fieldset>
     <%= f.submit "アラーム開始へ", class: "inline-flex items-center justify-center rounded border px-4 py-2 hover:bg-gray-50" %>
   <% end %>

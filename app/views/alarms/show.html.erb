@@ -1,6 +1,7 @@
 <div class="mx-auto max-w-xl p-6"
      data-controller="alarm"
      data-alarm-ends-at-value="<%= params[:ends_at_ms] %>"
+     data-alarm-duration-value="<%= params[:duration_ms] %>"
      data-alarm-music-url-value="<%= params[:music_url].to_s %>">
   <h1 class="text-2xl font-semibold">カウントダウン</h1>
   <div class="my-6 text-center text-6xl font-bold tracking-wide" data-alarm-target="display">--:--:--</div>
@@ -8,7 +9,6 @@
     <button data-action="alarm#start" class="px-4 py-2 border rounded">開始</button>
     <button data-action="alarm#pause" class="px-4 py-2 border rounded">一時停止</button>
     <button data-action="alarm#reset" class="px-4 py-2 border rounded">リセット</button>
-    <button data-action="alarm#testSound" class="px-4 py-2 border rounded">テスト再生</button>
     <%= link_to "別の時間でやり直す", root_path, class: "px-4 py-2 underline" %>
   </div>
   <audio data-alarm-target="audio" preload="auto" crossorigin="anonymous"></audio>

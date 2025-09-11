@@ -35,6 +35,7 @@ class AlarmsController < ApplicationController
 
     redirect_to alarm_path(
       ends_at_ms: (ends_at.to_f * 1000).to_i,
+      duration_ms: (duration_seconds * 1000),
       music_url: music_url
     )
   end
