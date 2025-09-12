@@ -39,6 +39,14 @@
             data-action="alarm-form#stopTest">
           停止
         </button>
+        <div class="flex items-center gap-3 mt-2">
+          <label class="text-sm text-gray-600">音量</label>
+          <input type="range" min="0" max="1" step="0.01" value="1"
+         class="w-full"
+         data-alarm-form-target="volume"
+         data-action="input->alarm-form#volumeChanged">
+          <span class="text-sm text-gray-600" data-alarm-form-target="volLabel">100%</span>
+        </div>
       </div>
       <div class="mt-4">
         <h2 class="font-medium">直近10件</h2>

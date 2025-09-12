@@ -14,11 +14,25 @@ export default class extends Controller {
     this._origTitle = null;
     this._titleBlinker = null;
 
+    // 音量の復元（UIは置かないので読むだけ）
+    const saved = parseFloat(localStorage.getItem("nap_volume") || "1");
+    this._volume = Number.isFinite(saved) ? Math.min(Math.max(saved, 0), 1) : 1;
+    try {
+      this.audioTarget.volume = this._volume;
+    } catch (_) {}
+
     // 初期表示
-    const dur = Number.isFinite(this.durationValue) && this.durationValue > 0 ? this.durationValue : null
-    const end = Number.isFinite(this.endsAtValue)    && this.endsAtValue > 0    ? this.endsAtValue : null
-    this._initialMs = dur ?? Math.max(0, (end ? end - Date.now() : 0))
-    if (!Number.isFinite(this._initialMs) || this._initialMs < 0) this._initialMs = 0
+    const dur =
+      Number.isFinite(this.durationValue) && this.durationValue > 0
+        ? this.durationValue
+        : null;
+    const end =
+      Number.isFinite(this.endsAtValue) && this.endsAtValue > 0
+        ? this.endsAtValue
+        : null;
+    this._initialMs = dur ?? Math.max(0, end ? end - Date.now() : 0);
+    if (!Number.isFinite(this._initialMs) || this._initialMs < 0)
+      this._initialMs = 0;
 
     this._remainingMs = this._initialMs;
     this._render(this._remainingMs);
@@ -37,7 +51,9 @@ export default class extends Controller {
     };
     document.addEventListener("visibilitychange", this._reacquireWakeLock);
 
-    if (this._initialMs > 0) { this.start() }
+    if (this._initialMs > 0) {
+      this.start();
+    }
   }
 
   disconnect() {
@@ -194,7 +210,9 @@ export default class extends Controller {
     osc.frequency.value = freq;
     osc.connect(gain);
     gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    const v = this._volume ?? 1;
+    gain.gain.setValueAtTime(0.001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.3 * v, ctx.currentTime + 0.01);
     osc.start();
     this._osc = osc;
     await new Promise((res) => setTimeout(res, duration));
