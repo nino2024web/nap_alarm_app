@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 
 export default class extends Controller {
   static values = { endsAt: Number, duration: Number, musicUrl: String };
-  static targets = ["display", "audio"];
+  static targets = ["display", "audio", "startBtn", "pauseBtn"];
 
   connect() {
     // 状態
@@ -67,13 +67,17 @@ export default class extends Controller {
         t && t.closest('input,textarea,select,[contenteditable="true"]');
       if (typing || e.altKey || e.ctrlKey || e.metaKey) return;
 
+      // スヌーズ機能(+5分)
+      if (e.code === "KeyS" || e.key === "s" || e.key === "S") {
+        e.preventDefault();
+        this.snooze(5);
+      }
+
       // Space
       if (e.code === "Space" || e.key === " ") {
         e.preventDefault(); // スクロール抑止
         if (this._ringing) {
-          // 鳴動中は「音停止」だけ
-          this._stopSound();
-          this._stopAlerts();
+          this.stop();
           return;
         }
         // 通常は一時停止/再開トグル
@@ -87,8 +91,12 @@ export default class extends Controller {
       // Esc = いつでも音停止（鳴動/再生の有無にかかわらず）
       if (e.code === "Escape" || e.key === "Escape") {
         e.preventDefault();
-        this._stopSound();
-        this._stopAlerts();
+        if (this._ringing || this._remainingMs <= 0) {
+          this.stop(); // UI/ガード/ロックも整理
+        } else {
+          this._stopSound(); // 誤再生の強制停止だけ
+          this._stopAlerts();
+        }
       }
     };
     window.addEventListener("keydown", this._onKeydown, { capture: true });
@@ -98,6 +106,39 @@ export default class extends Controller {
     if (this._initialMs > 0) {
       this.start();
     }
+  }
+
+  stop() {
+    this._stopSound();
+    this._stopAlerts();
+    this._ringing = false;
+    this._paused = true;
+    this._unbindBeforeUnload();
+    this._releaseWakeLock();
+    this._setRingingUI(false);
+  }
+
+  // === 操作系 ===
+  snooze(min = 5) {
+    const n = Number(min);
+    const addMs = (Number.isFinite(n) && n > 0 ? n : 5) * 60000;
+
+    // 鳴動中の音・アラートは止める
+    this._stopSound();
+    this._stopAlerts();
+    this._ringing = false;
+
+    // いまから +addMs で再スタート
+    this._paused = false;
+    this._endsAtMs = Date.now() + addMs;
+    this._clear();
+    this._tick();
+    this._timer = setInterval(() => this._tick(), 200);
+    this._bindBeforeUnload();
+    this._requestWakeLock();
+
+    // UI を通常モードへ戻す
+    this._setRingingUI(false);
   }
 
   disconnect() {
@@ -124,6 +165,7 @@ export default class extends Controller {
     await this._unlockAudio(); // ← 自動再生対策（下に定義）
     this._bindBeforeUnload();
     await this._requestWakeLock();
+    this._setRingingUI(false);
   }
 
   async pause() {
@@ -144,6 +186,7 @@ export default class extends Controller {
     this._unbindBeforeUnload();
     await this._releaseWakeLock();
     this._stopAlerts();
+    this._setRingingUI(false);
 
     // ★ 初期値へ
     this._remainingMs = this._initialMs;
@@ -218,8 +261,27 @@ export default class extends Controller {
       }
       await this._notifyComplete(); // 通知・バイブ・タイトル点滅
       this._ringing = true;
+      this._setRingingUI(true);
     } catch (e) {
       this.displayTarget.textContent = "再生ボタン押して！";
+    }
+  }
+
+  _setRingingUI(isRinging) {
+    const startEl = this.hasStartBtnTarget ? this.startBtnTarget : null;
+    const pauseEl = this.hasPauseBtnTarget ? this.pauseBtnTarget : null;
+    if (!startEl || !pauseEl) return;
+
+    if (isRinging) {
+      startEl.textContent = "スヌーズ(+5分)";
+      startEl.setAttribute("data-action", "alarm#snooze");
+      pauseEl.textContent = "停止";
+      pauseEl.setAttribute("data-action", "alarm#stop");
+    } else {
+      startEl.textContent = "開始/再開";
+      startEl.setAttribute("data-action", "alarm#start");
+      pauseEl.textContent = "一時停止";
+      pauseEl.setAttribute("data-action", "alarm#pause");
     }
   }
 
