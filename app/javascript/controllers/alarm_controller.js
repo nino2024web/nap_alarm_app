@@ -13,6 +13,7 @@ export default class extends Controller {
     this._osc = null;
     this._origTitle = null;
     this._titleBlinker = null;
+    this._ringing = false; // いま鳴っているかどうか
 
     // 音量の復元（UIは置かないので読むだけ）
     const saved = parseFloat(localStorage.getItem("nap_volume") || "1");
@@ -49,6 +50,49 @@ export default class extends Controller {
         await this._requestWakeLock();
       }
     };
+
+    // 離脱ガード
+    this._beforeUnload = (e) => {
+      if (this._paused) return;
+      e.preventDefault();
+      e.returnValue = "アラーム作動中です。離れてもよいですか？";
+      return e.returnValue;
+    };
+
+    // キーボード: Space/Esc（フォーム入力中は無視）
+    this._onKeydown = (e) => {
+      // 入力要素や修飾キー付きはスルー
+      const t = e.target;
+      const typing =
+        t && t.closest('input,textarea,select,[contenteditable="true"]');
+      if (typing || e.altKey || e.ctrlKey || e.metaKey) return;
+
+      // Space
+      if (e.code === "Space" || e.key === " ") {
+        e.preventDefault(); // スクロール抑止
+        if (this._ringing) {
+          // 鳴動中は「音停止」だけ
+          this._stopSound();
+          this._stopAlerts();
+          return;
+        }
+        // 通常は一時停止/再開トグル
+        if (this._paused) {
+          this.start();
+        } else {
+          this.pause();
+        }
+      }
+
+      // Esc = いつでも音停止（鳴動/再生の有無にかかわらず）
+      if (e.code === "Escape" || e.key === "Escape") {
+        e.preventDefault();
+        this._stopSound();
+        this._stopAlerts();
+      }
+    };
+    window.addEventListener("keydown", this._onKeydown, { capture: true });
+
     document.addEventListener("visibilitychange", this._reacquireWakeLock);
 
     if (this._initialMs > 0) {
@@ -58,6 +102,8 @@ export default class extends Controller {
 
   disconnect() {
     this._clear();
+    this._unbindBeforeUnload();
+    window.removeEventListener("keydown", this._onKeydown, { capture: true });
     document.removeEventListener("visibilitychange", this._reacquireWakeLock);
     this._releaseWakeLock();
     this._stopAlerts();
@@ -75,6 +121,8 @@ export default class extends Controller {
     this._timer = setInterval(() => this._tick(), 200);
 
     // クリック直後＝ユーザー操作中に要求
+    await this._unlockAudio(); // ← 自動再生対策（下に定義）
+    this._bindBeforeUnload();
     await this._requestWakeLock();
   }
 
@@ -84,6 +132,7 @@ export default class extends Controller {
     this._clear();
     this._remainingMs = Math.max(0, this._endsAtMs - Date.now());
     this._render(this._remainingMs);
+    this._unbindBeforeUnload();
     await this._releaseWakeLock();
     this._stopAlerts();
   }
@@ -92,6 +141,7 @@ export default class extends Controller {
     this._paused = true;
     this._clear();
     this._stopSound();
+    this._unbindBeforeUnload();
     await this._releaseWakeLock();
     this._stopAlerts();
 
@@ -124,6 +174,17 @@ export default class extends Controller {
     }
   }
 
+  _bindBeforeUnload() {
+    window.addEventListener("beforeunload", this._beforeUnload, {
+      capture: true,
+    });
+  }
+  _unbindBeforeUnload() {
+    window.removeEventListener("beforeunload", this._beforeUnload, {
+      capture: true,
+    });
+  }
+
   // === 内部処理 ===
   _tick() {
     const ms = Math.max(0, this._endsAtMs - Date.now());
@@ -152,9 +213,11 @@ export default class extends Controller {
       if (!this.hasMusicUrlValue || this.musicUrlValue.trim() === "") {
         await this._beepPattern();
       } else {
+        this.audioTarget.volume = this._volume ?? 1;
         await this.audioTarget.play();
       }
       await this._notifyComplete(); // 通知・バイブ・タイトル点滅
+      this._ringing = true;
     } catch (e) {
       this.displayTarget.textContent = "再生ボタン押して！";
     }
@@ -185,6 +248,11 @@ export default class extends Controller {
       this._ctx.close().catch(() => {});
       this._ctx = null;
     }
+    this._ringing = false;
+    if (this._remainingMs <= 0) {
+      this._unbindBeforeUnload();
+      this._paused = true;
+    }
   }
 
   async _ensureAudioUnlocked() {
@@ -195,6 +263,7 @@ export default class extends Controller {
   async _playSoundOnce() {
     if (this.hasMusicUrlValue && this.musicUrlValue.trim() !== "") {
       this._stopSound();
+      this.audioTarget.volume = this._volume ?? 1;
       await this.audioTarget.play();
     } else {
       await this._beepOnce();
@@ -310,5 +379,25 @@ export default class extends Controller {
       this._titleBlinker = null;
     }
     if (this._origTitle) document.title = this._origTitle;
+  }
+
+  // 追加：ユーザー操作中に許可を取る
+  async _unlockAudio() {
+    try {
+      this._ctx =
+        this._ctx || new (window.AudioContext || window.webkitAudioContext)();
+      await this._ctx.resume();
+    } catch (_) {}
+    if (this.hasMusicUrlValue && this.musicUrlValue.trim() !== "") {
+      try {
+        const a = this.audioTarget;
+        a.muted = true;
+        a.volume = this._volume ?? a.volume;
+        await a.play(); // 許可だけ取る
+        a.pause();
+        a.currentTime = 0;
+        a.muted = false;
+      } catch (_) {}
+    }
   }
 }
