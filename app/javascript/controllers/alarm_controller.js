@@ -15,9 +15,11 @@ export default class extends Controller {
     this._titleBlinker = null;
 
     // 初期表示
-    this._initialMs = this.hasDurationValue
-      ? this.durationValue
-      : Math.max(0, this.endsAtValue - Date.now());
+    const dur = Number.isFinite(this.durationValue) && this.durationValue > 0 ? this.durationValue : null
+    const end = Number.isFinite(this.endsAtValue)    && this.endsAtValue > 0    ? this.endsAtValue : null
+    this._initialMs = dur ?? Math.max(0, (end ? end - Date.now() : 0))
+    if (!Number.isFinite(this._initialMs) || this._initialMs < 0) this._initialMs = 0
+
     this._remainingMs = this._initialMs;
     this._render(this._remainingMs);
 
@@ -34,6 +36,8 @@ export default class extends Controller {
       }
     };
     document.addEventListener("visibilitychange", this._reacquireWakeLock);
+
+    if (this._initialMs > 0) { this.start() }
   }
 
   disconnect() {

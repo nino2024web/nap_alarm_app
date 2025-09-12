@@ -21,17 +21,32 @@
         </label>
       </div>
     </fieldset>
-    <fieldset class="space-y-2" data-controller="sound-test">
+    <fieldset class="space-y-2" data-controller="alarm-form">
       <legend class="font-medium">音楽URL（任意）</legend>
       <p class="text-sm text-gray-600">直リンク推奨。開始ボタンは必ず押してね（自動再生規制）。</p>
       <div class="flex items-center gap-3">
-        <%= url_field_tag :music_url, nil, placeholder: "https://example.com/alarm.mp3",
-          class: "w-full border rounded px-3 py-2",
-          data: { "sound-test-target": "input" } %>
+        <%= url_field_tag :music_url, nil,
+      placeholder: "https://example.com/alarm.mp3",
+      class: "w-full border rounded px-3 py-2",
+      data: { "alarm-form-target": "musicUrl" } %>
         <button type="button"
-            data-action="sound-test#test"
-            class="inline-flex items-center justify-center rounded border px-3 py-2 hover:bg-gray-50">
+            class="inline-flex items-center justify-center rounded border px-3 py-2 hover:bg-gray-50"
+            data-action="alarm-form#testSound">
           音をテスト
+        </button>
+        <button type="button"
+            class="inline-flex items-center justify-center rounded border px-3 py-2 hover:bg-gray-50"
+            data-action="alarm-form#stopTest">
+          停止
+        </button>
+      </div>
+      <div class="mt-4">
+        <h2 class="font-medium">直近10件</h2>
+        <ul class="space-y-2" data-alarm-form-target="historyList"></ul>
+        <button type="button"
+            class="mt-2 inline-flex items-center justify-center rounded border px-3 py-2 hover:bg-gray-50"
+            data-action="alarm-form#clearHistory">
+          履歴クリア
         </button>
       </div>
     </fieldset>

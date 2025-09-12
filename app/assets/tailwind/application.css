@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* --- optional: ベース --- */
 @layer base {
@@ -27,4 +25,14 @@
   .no-spin::-webkit-outer-spin-button,
   .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .no-spin { -moz-appearance: textfield; }
+}
+
+
+@layer components {
+  .container-nap { @apply mx-auto w-full max-w-[720px] p-4; }
+  .display-nap   { @apply font-extrabold tracking-wide text-center text-[clamp(40px,8vw,96px)] tabular-nums; }
+  .controls-nap  { @apply flex flex-wrap justify-center gap-2; }
+  .btn-nap       { @apply rounded-xl border border-slate-600 px-4 py-2 min-h-[44px] text-slate-100 hover:border-teal-400; }
+  .btn-danger    { @apply border-red-500 hover:border-red-400; }
+  .input-nap     { @apply w-full rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2 text-slate-100; }
 }
