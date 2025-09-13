@@ -1,8 +1,13 @@
 import { Controller } from "@hotwired/stimulus";
 
 export default class extends Controller {
-  static values = { endsAt: Number, duration: Number, musicUrl: String };
-  static targets = ["display", "audio", "startBtn", "pauseBtn"];
+  static values = {
+    endsAt: Number,
+    duration: Number,
+    musicUrl: String,
+    ringSeconds: Number,
+  };
+  static targets = ["display", "audio", "startBtn", "pauseBtn", "ytPlayer"];
 
   connect() {
     // 状態
@@ -14,6 +19,7 @@ export default class extends Controller {
     this._origTitle = null;
     this._titleBlinker = null;
     this._ringing = false; // いま鳴っているかどうか
+    this._ringStopTimeout = null; // 自動停止用タイマー
 
     // 音量の復元（UIは置かないので読むだけ）
     const saved = parseFloat(localStorage.getItem("nap_volume") || "1");
@@ -109,6 +115,15 @@ export default class extends Controller {
   }
 
   stop() {
+    if (this._ringStopTimeout) {
+      clearTimeout(this._ringStopTimeout);
+      this._ringStopTimeout = null;
+    }
+    if (this._ytPlayer) {
+      try {
+        this._ytPlayer.stopVideo();
+      } catch (_) {}
+    }
     this._stopSound();
     this._stopAlerts();
     this._ringing = false;
@@ -253,15 +268,40 @@ export default class extends Controller {
   async _ring() {
     try {
       await this._ensureAudioUnlocked();
-      if (!this.hasMusicUrlValue || this.musicUrlValue.trim() === "") {
-        await this._beepPattern();
+      const url = (this.musicUrlValue || "").trim();
+      const isYT = this._isYoutubeUrl(url);
+
+      let started = false;
+      if (!url) {
+        // 音源なし → ビープを“30秒”ループ
+        await this._beepLoopFor(this._ringDurationMsForNonYouTube());
+        started = true; // 自前で鳴らしている
+        this._scheduleStopAfter(this._ringDurationMsForNonYouTube());
+      } else if (isYT) {
+        // YouTubeは“1曲”再生（失敗時はビープ30秒）
+        started = await this._playYouTube(url);
+        if (!started) {
+          await this._beepLoopFor(this._ringDurationMsForNonYouTube());
+          this._scheduleStopAfter(this._ringDurationMsForNonYouTube());
+        } else {
+          // セーフティ上限（例：15分）で自動停止
+          this._scheduleStopAfter(15 * 60 * 1000);
+        }
       } else {
+        // asset/mp3 は30秒だけ鳴らす
+        this.audioTarget.loop = true;
+        this.audioTarget.src = url;
         this.audioTarget.volume = this._volume ?? 1;
         await this.audioTarget.play();
+        started = true;
+        this._scheduleStopAfter(this._ringDurationMsForNonYouTube());
       }
-      await this._notifyComplete(); // 通知・バイブ・タイトル点滅
-      this._ringing = true;
-      this._setRingingUI(true);
+
+      if (started) {
+        await this._notifyComplete(); // 通知・バイブ・タイトル点滅
+        this._ringing = true;
+        this._setRingingUI(true);
+      }
     } catch (e) {
       this.displayTarget.textContent = "再生ボタン押して！";
     }
@@ -460,6 +500,132 @@ export default class extends Controller {
         a.currentTime = 0;
         a.muted = false;
       } catch (_) {}
+    }
+  }
+
+  _ringDurationMsForNonYouTube() {
+    const s =
+      this.hasRingSecondsValue && this.ringSecondsValue > 0
+        ? this.ringSecondsValue
+        : 30;
+    return s * 1000;
+  }
+
+  _scheduleStopAfter(ms) {
+    if (this._ringStopTimeout) clearTimeout(this._ringStopTimeout);
+    this._ringStopTimeout = setTimeout(() => this.stop(), ms);
+  }
+
+  _isYoutubeUrl(u) {
+    try {
+      const x = new URL(u);
+      return [
+        "www.youtube.com",
+        "youtube.com",
+        "m.youtube.com",
+        "music.youtube.com",
+        "youtu.be",
+      ].includes(x.hostname);
+    } catch {
+      return false;
+    }
+  }
+
+  _extractYouTubeId(u) {
+    try {
+      const x = new URL(u);
+      if (x.hostname === "youtu.be") return x.pathname.slice(1);
+      if (x.searchParams.get("v")) return x.searchParams.get("v");
+      const m = x.pathname.match(/\/embed\/([^/?#]+)/);
+      return m ? m[1] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async _ensureYouTubeAPI() {
+    if (window.YT && window.YT.Player) return;
+    await new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = "https://www.youtube.com/iframe_api";
+      s.async = true;
+      s.onerror = () => rej(new Error("yt api load fail"));
+      document.head.appendChild(s);
+      window.onYouTubeIframeAPIReady = () => res();
+      setTimeout(() => res(), 3000); // 3秒で諦め
+    });
+  }
+
+  async _playYouTube(rawUrl) {
+    try {
+      await this._ensureYouTubeAPI();
+      const vid = this._extractYouTubeId(rawUrl);
+      if (!vid) return false;
+
+      if (!this._ytPlayer) {
+        this._ytPlayer = new YT.Player(
+          this.hasYtPlayerTarget ? this.ytPlayerTarget : "yt-player",
+          {
+            height: "0",
+            width: "0",
+            videoId: vid,
+            playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1 },
+            events: {
+              onStateChange: (e) => {
+                if (e.data === YT.PlayerState.ENDED) this.stop(); // 1曲終了で停止
+              },
+            },
+          }
+        );
+        // 初期化待ち（最大2秒）
+        const ok = await new Promise((res) => {
+          let t = 0;
+          const tick = () => {
+            try {
+              if (this._ytPlayer.getPlayerState) return res(true);
+            } catch {}
+            if (t++ > 40) return res(false);
+            setTimeout(tick, 50);
+          };
+          tick();
+        });
+        if (!ok) return false;
+      } else {
+        try {
+          this._ytPlayer.loadVideoById(vid);
+        } catch {
+          return false;
+        }
+      }
+
+      // 再生開始検知（最大2秒）
+      const started = await new Promise((res) => {
+        let seen = false,
+          t0 = performance.now();
+        const tick = () => {
+          try {
+            const st = this._ytPlayer.getPlayerState();
+            if (st === YT.PlayerState.PLAYING) seen = true;
+          } catch {}
+          if (seen) return res(true);
+          if (performance.now() - t0 > 2000) return res(false);
+          requestAnimationFrame(tick);
+        };
+        tick();
+      });
+
+      return started;
+    } catch {
+      return false;
+    }
+  }
+
+  // ビープを一定時間ループ（YouTube失敗や音源なし用）
+  async _beepLoopFor(totalMs) {
+    const end = Date.now() + totalMs;
+    while (Date.now() < end) {
+      await this._beepOnce(250, 1000);
+      await new Promise((r) => setTimeout(r, 120));
     }
   }
 }

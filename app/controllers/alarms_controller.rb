@@ -9,6 +9,7 @@ class AlarmsController < ApplicationController
     preset = params[:preset].presence
     custom_hours   = params[:custom_hours].to_i
     custom_minutes = params[:custom_minutes].to_i
+    custom_seconds = params[:custom_seconds].to_i
 
     duration_seconds =
       case preset
@@ -18,7 +19,7 @@ class AlarmsController < ApplicationController
       when "45" then 45.minutes
       when "60" then 60.minutes
       when "custom"
-      total = custom_hours.hours + custom_minutes.minutes
+      total = custom_hours.hours + custom_minutes.minutes + custom_seconds.seconds
       total = 0 if total.negative?
       total
       else

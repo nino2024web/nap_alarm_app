@@ -2,7 +2,8 @@
      data-controller="alarm"
      data-alarm-ends-at-value="<%= params[:ends_at_ms] %>"
      data-alarm-duration-value="<%= params[:duration_ms] %>"
-     data-alarm-music-url-value="<%= params[:music_url].to_s %>">
+     data-alarm-music-url-value="<%= params[:music_url].to_s %>"
+     data-alarm-ring-seconds-value="30"> <!-- デフォルトは30秒 -->
   <h1 class="text-2xl font-semibold">カウントダウン</h1>
   <div class="my-6 text-center text-6xl font-bold tracking-wide" data-alarm-target="display">--:--:--</div>
   <div class="flex flex-wrap gap-2 justify-center">
@@ -19,4 +20,7 @@
   <p class="mt-4 text-sm text-gray-600">
     端末スリープ中は鳴らないことがある。背景タブだと精度が落ちる場合もあるよ（終端時刻で補正）。
   </p>
+  <!-- YouTube用のプレイヤー置き場（非表示でOK） -->
+  <div id="yt-player" class="hidden" data-alarm-target="ytPlayer"></div>
+  <audio data-alarm-target="audio" playsinline></audio>
 </div>
