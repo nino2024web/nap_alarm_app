@@ -20,6 +20,7 @@ export default class extends Controller {
     this._titleBlinker = null;
     this._ringing = false; // いま鳴っているかどうか
     this._ringStopTimeout = null; // 自動停止用タイマー
+    this._ytPrepared = false;
 
     // 音量の復元（UIは置かないので読むだけ）
     const saved = parseFloat(localStorage.getItem("nap_volume") || "1");
@@ -46,8 +47,9 @@ export default class extends Controller {
 
     // Audio 初期化
     this.audioTarget.loop = true;
-    if (this.hasMusicUrlValue && this.musicUrlValue.trim() !== "") {
-      this.audioTarget.src = this.musicUrlValue;
+    if (this.hasMusicUrlValue) {
+      const raw = this.musicUrlValue.trim();
+      this.audioTarget.src = this._isYoutubeUrl(raw) ? "" : raw;
     }
 
     // 復帰時に Wake Lock を取り直す
@@ -114,6 +116,69 @@ export default class extends Controller {
     }
   }
 
+  async _prepareYouTube(rawUrl) {
+    await this._ensureYouTubeAPI();
+    const id = this._extractYouTubeId(rawUrl);
+    if (!id) return false;
+    if (!this._ytPlayer) {
+      this._ytPlayer = new YT.Player(
+        this.hasYtPlayerTarget ? this.ytPlayerTarget : "yt-player",
+        {
+          height: "0",
+          width: "0",
+          videoId: id,
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            rel: 0,
+            playsinline: 1,
+            mute: 1,
+          },
+        }
+      );
+      await new Promise((res) => {
+        let t = 0;
+        (function tick() {
+          try {
+            if (this._ytPlayer.getPlayerState) return res();
+          } catch {}
+          if (t++ > 40) return res();
+          setTimeout(tick.bind(this), 50);
+        }).call(this);
+      });
+    } else {
+      this._ytPlayer.loadVideoById(id);
+    }
+    try {
+      this._ytPlayer.mute();
+      this._ytPlayer.playVideo();
+    } catch (_) {}
+    this._ytPrepared = true;
+    return true;
+  }
+
+  async _unmutePreparedYouTube() {
+    try {
+      this._ytPlayer.seekTo(0, true);
+      this._ytPlayer.unMute();
+      this._ytPlayer.playVideo();
+    } catch (_) {
+      return false;
+    }
+    const ok = await new Promise((res) => {
+      const t0 = performance.now();
+      (function tick() {
+        try {
+          if (this._ytPlayer.getPlayerState() === YT.PlayerState.PLAYING)
+            return res(true);
+        } catch {}
+        if (performance.now() - t0 > 2000) return res(false);
+        requestAnimationFrame(tick.bind(this));
+      }).call(this);
+    });
+    return ok;
+  }
+
   stop() {
     if (this._ringStopTimeout) {
       clearTimeout(this._ringStopTimeout);
@@ -124,6 +189,7 @@ export default class extends Controller {
         this._ytPlayer.stopVideo();
       } catch (_) {}
     }
+    this._ytPrepared = false;
     this._stopSound();
     this._stopAlerts();
     this._ringing = false;
@@ -181,6 +247,11 @@ export default class extends Controller {
     this._bindBeforeUnload();
     await this._requestWakeLock();
     this._setRingingUI(false);
+
+    const url = (this.musicUrlValue || "").trim();
+    if (this._isYoutubeUrl(url)) {
+      await this._prepareYouTube(url);
+    }
   }
 
   async pause() {
@@ -279,7 +350,10 @@ export default class extends Controller {
         this._scheduleStopAfter(this._ringDurationMsForNonYouTube());
       } else if (isYT) {
         // YouTubeは“1曲”再生（失敗時はビープ30秒）
-        started = await this._playYouTube(url);
+        const started = this._ytPrepared;
+        started = this._ytPrepared
+          ? await this._unmutePreparedYouTube()
+          : await this._playYouTube(url);
         if (!started) {
           await this._beepLoopFor(this._ringDurationMsForNonYouTube());
           this._scheduleStopAfter(this._ringDurationMsForNonYouTube());

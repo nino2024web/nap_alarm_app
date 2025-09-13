@@ -5,22 +5,29 @@
      data-alarm-music-url-value="<%= params[:music_url].to_s %>"
      data-alarm-ring-seconds-value="30"> <!-- デフォルトは30秒 -->
   <h1 class="text-2xl font-semibold">カウントダウン</h1>
-  <div class="my-6 text-center text-6xl font-bold tracking-wide" data-alarm-target="display">--:--:--</div>
+  <div class="my-6 text-center text-6xl font-bold tracking-wide"
+       data-alarm-target="display">--:--:--</div>
   <div class="flex flex-wrap gap-2 justify-center">
-    <button data-alarm-target="startBtn"
-          data-action="alarm#start"
-          class="px-4 py-2 border rounded">開始/再開</button>
-    <button data-alarm-target="pauseBtn"
-          data-action="alarm#pause"
-          class="px-4 py-2 border rounded">一時停止</button>
-    <button data-action="alarm#reset" class="px-4 py-2 border rounded">リセット</button>
+    <button type="button"
+            data-alarm-target="startBtn"
+            data-action="alarm#start"
+            class="px-4 py-2 border rounded">開始/再開</button>
+    <button type="button"
+            data-alarm-target="pauseBtn"
+            data-action="alarm#pause"
+            class="px-4 py-2 border rounded">一時停止</button>
+    <button type="button"
+            data-action="alarm#reset"
+            class="px-4 py-2 border rounded">リセット</button>
     <%= link_to "別の時間でやり直す", root_path, class: "px-4 py-2 underline" %>
   </div>
-  <audio data-alarm-target="audio" preload="auto" crossorigin="anonymous"></audio>
+  <!-- YouTube用のプレイヤー置き場（非表示形式） -->
+  <div id="yt-player" class="hidden" data-alarm-target="ytPlayer"></div>
+  <audio data-alarm-target="audio"
+         playsinline
+         preload="auto"
+         crossorigin="anonymous"></audio>
   <p class="mt-4 text-sm text-gray-600">
     端末スリープ中は鳴らないことがある。背景タブだと精度が落ちる場合もあるよ（終端時刻で補正）。
   </p>
-  <!-- YouTube用のプレイヤー置き場（非表示でOK） -->
-  <div id="yt-player" class="hidden" data-alarm-target="ytPlayer"></div>
-  <audio data-alarm-target="audio" playsinline></audio>
 </div>

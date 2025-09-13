@@ -220,6 +220,29 @@ export default class extends Controller {
     if (url) window.open(url, "_blank", "noopener");
   }
 
+  _normalizeToYouTubeWatch(u) {
+    try {
+      const x = new URL(u);
+      // music.youtube.com や youtu.be などを youtube.com/watch?v= に寄せる
+      if (
+        x.hostname === "music.youtube.com" ||
+        x.hostname === "m.youtube.com" ||
+        x.hostname === "youtu.be"
+      ) {
+        // youtu.be はパスが /VIDEO_ID
+        const vid =
+          x.hostname === "youtu.be"
+            ? x.pathname.slice(1)
+            : x.searchParams.get("v") || "";
+        if (vid) return `https://www.youtube.com/watch?v=${vid}`;
+      }
+      // それ以外はそのまま
+      return u;
+    } catch {
+      return u;
+    }
+  }
+
   async _fetchYoutubeTitle() {
     if (!this.hasMusicUrlTarget || !this.hasYtTitleTarget) return;
     const raw = this.musicUrlTarget.value?.trim();
@@ -245,12 +268,13 @@ export default class extends Controller {
 
     this.ytTitleTarget.textContent = "取得中…";
     try {
-      const res = await fetch(`/oembed?url=${encodeURIComponent(raw)}`);
+      const norm = this._normalizeToYouTubeWatch(raw);
+      const res = await fetch(`/oembed?url=${encodeURIComponent(norm)}`);
       if (!res.ok) throw new Error("oEmbed失敗");
       const data = await res.json();
       const title = data.title || "（題名不明）";
       this.ytTitleTarget.textContent = title;
-      cache[raw] = { title, at: Date.now() };
+      cache[raw] = { title, at: Date.now(), thumbnail_url: data.thumbnail_url };
       localStorage.setItem(cacheKey, JSON.stringify(cache));
     } catch {
       this.ytTitleTarget.textContent = "取得できませんでした";
