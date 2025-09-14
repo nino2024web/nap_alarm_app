@@ -8,21 +8,43 @@
   <div class="my-6 text-center text-6xl font-bold tracking-wide"
        data-alarm-target="display">--:--:--</div>
   <div class="flex flex-wrap gap-2 justify-center">
+    <!-- 開始/再開（青系） -->
     <button type="button"
             data-alarm-target="startBtn"
             data-action="alarm#start"
-            class="px-4 py-2 border rounded">開始/再開</button>
+            class="px-4 py-2 border rounded transition-colors
+                   hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700
+                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+      開始/再開
+    </button>
+    <!-- 一時停止（琥珀系） -->
     <button type="button"
             data-alarm-target="pauseBtn"
             data-action="alarm#pause"
-            class="px-4 py-2 border rounded">一時停止</button>
+            class="px-4 py-2 border rounded transition-colors
+                   hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700
+                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
+      一時停止
+    </button>
+    <!-- リセット（赤系） -->
     <button type="button"
             data-action="alarm#reset"
-            class="px-4 py-2 border rounded">リセット</button>
-    <%= link_to "別の時間でやり直す", root_path, class: "px-4 py-2 underline" %>
+            class="px-4 py-2 border rounded transition-colors
+                   hover:bg-rose-50 hover:border-rose-400 hover:text-rose-700
+                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400">
+      リセット
+    </button>
+    <%= link_to "別の時間でやり直す",
+          root_path,
+          class: "px-4 py-2 underline underline-offset-2 decoration-gray-400
+                  transition-colors hover:text-blue-700 hover:decoration-blue-600
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded" %>
   </div>
   <!-- YouTube用のプレイヤー置き場（非表示形式） -->
-  <div id="yt-player" class="hidden" data-alarm-target="ytPlayer"></div>
+  <div id="yt-player"
+     style="position:absolute;width:1px;height:1px;overflow:hidden;pointer-events:none;"
+     aria-hidden="true"
+     data-alarm-target="ytPlayer"></div>
   <audio data-alarm-target="audio"
          playsinline
          preload="auto"

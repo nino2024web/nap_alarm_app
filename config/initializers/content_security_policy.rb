@@ -23,3 +23,9 @@
 #   # Report violations without enforcing the policy.
 #   # config.content_security_policy_report_only = true
 # end
+
+# CSP穴埋め
+policy.script_src  :self, :https, "https://www.youtube.com", "https://s.ytimg.com"
+policy.frame_src   :self, :https, "https://www.youtube.com"
+policy.connect_src :self, :https, "https://www.youtube.com", "https://www.google.com"
+policy.img_src     :self, :https, "https://i.ytimg.com", "https://yt3.ggpht.com"
