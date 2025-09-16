@@ -11,7 +11,11 @@
     </div>
   <% end %>
   <div class="mx-auto max-w-xl p-6">
-    <h1 class="text-3xl md:text-4xl font-bold">Nap Alarm</h1>
+    <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">
+      PowerNap_
+      <span class="ml-2 align-baseline font-semibold text-gray-600">仮眠</span>
+      <span class="ml-3 align-baseline text-xs md:text-sm font-normal text-gray-500">20分で、頭を軽く。</span>
+    </h1>
     <% if flash[:alert] %>
       <p class="mt-3 text-rose-600"><%= flash[:alert] %></p>
     <% end %>
