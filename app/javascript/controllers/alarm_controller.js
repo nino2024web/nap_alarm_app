@@ -154,22 +154,17 @@ export default class extends Controller {
 
   async reset() {
     this._paused = true;
-
-    // タイマー類クリア
-    this._clear();
-
-    // ★ 音を全部止める
-    this._cancelBeepLoop();
+    this._clear(); // タイマー類クリア
+    this._cancelBeepLoop(); // 音を全部止める
     if (this._ringStopTimeout) {
       // ← 鳴動上限のタイマー解除
       clearTimeout(this._ringStopTimeout);
       this._ringStopTimeout = null;
     }
     this._stopSound();
-    try {
-      this._ytPlayer?.stopVideo();
-    } catch {}
-    this._ytPrepared = false;
+
+    this._destroyYT();
+    this._closeYTPrompt();
 
     // UIと環境後始末
     this._unbindBeforeUnload();
@@ -259,28 +254,31 @@ export default class extends Controller {
         started = true;
         this._scheduleStopAfter(this._ringDurationMsForNonYouTube());
       } else if (isYT) {
-        // まずは準備→アンミュート
         const prepared = this._ytPrepared || (await this._prepareYouTube(url));
+        let started = false;
         if (prepared) started = await this._unmutePreparedYouTube();
 
         if (!started) {
-          // 失敗：即プロンプト、ビープは並行で30秒
+          // ←ここが肝。モーダルを出して“このタブで再生”の明示クリックをもらう
           this._showYTPrompt(async () => {
             const ok = await this._unmutePreparedYouTube();
             if (!ok) {
-              // 埋め込み禁止など → 同タブ遷移
+              // 埋め込み不可など → 同タブでYouTubeに飛ばして確実に鳴らす
               window.location.assign(this._normalizeToYouTubeWatch(url));
               return;
             }
-            // 成功：ビープ止める、上限15分でフェイルセーフ
+            // 再生できたらフォールバック音を止めて、最大15分で安全停止
             this._cancelBeepLoop();
             this._stopSound();
             this._scheduleStopAfter(15 * 60 * 1000);
           });
-          this._startBeepLoop(this._ringDurationMsForNonYouTube()); // 並行
-          started = true;
+
+          // モーダルの操作待ちの間、**デフォルト音で鳴らし続ける**（並行）
+          this._startBeepLoop(this._ringDurationMsForNonYouTube());
           this._scheduleStopAfter(this._ringDurationMsForNonYouTube());
+          started = true; // UIは鳴動中にする
         } else {
+          // そのままYouTube再生できたケース
           this._scheduleStopAfter(15 * 60 * 1000);
         }
       } else {

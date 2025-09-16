@@ -3,13 +3,14 @@ import { Controller } from "@hotwired/stimulus";
 
 const HISTORY_KEY = "nap_alarm_history";
 const VOL_KEY = "nap_volume";
-const MIN_MS = 60 * 1000; // 最低1分
+const MIN_MS = 1000; // 1秒
 
 export default class extends Controller {
   static targets = [
     "source",
     "urlRow",
     "musicUrl",
+    "clearBtn",
     "ytMeta",
     "ytTitle",
     "historyList",
@@ -39,8 +40,9 @@ export default class extends Controller {
     // 初期UI
     this.sourceChanged();
     this.presetChanged();
-    this._sweepHistory(); // ← 1回だけでOK
+    this._sweepHistory();
     this._renderHistory();
+    this._updateClearBtn();
 
     // フォーム送信でのみ履歴保存（0分はalertで止める）
     this.formEl =
@@ -50,7 +52,7 @@ export default class extends Controller {
       const ms = this._currentDurationMs();
       if (ms < MIN_MS) {
         e.preventDefault();
-        alert("0分は設定できません。1分以上を指定してください。");
+        alert("0分は設定できません。1秒以上を指定してください。");
         return;
       }
       this._saveHistoryOnSubmit(ms);
@@ -134,11 +136,35 @@ export default class extends Controller {
     this._updateTestHint();
   }
 
+  onUrlKeydown(e) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      this.clearUrl();
+    }
+  }
+
+  clearUrl() {
+    if (!this.hasMusicUrlTarget) return;
+    this.musicUrlTarget.value = "";
+    this._stopYouTubeTest?.();
+    if (this.hasYtTitleTarget) this.ytTitleTarget.textContent = "（URL未入力）";
+    this._updateClearBtn();
+    this._updateTestHint();
+    this.musicUrlTarget.focus();
+  }
+
   urlChanged() {
     if (!this.hasSourceTarget) return;
     const [kind] = this.sourceTarget.value.split(":");
     if (kind === "youtube") this._debouncedFetchTitle?.();
     this._updateTestHint();
+    this._updateClearBtn();
+  }
+
+  _updateClearBtn() {
+    if (!this.hasClearBtnTarget) return;
+    const raw = (this.musicUrlTarget?.value || "").trim();
+    this.clearBtnTarget.hidden = raw.length === 0;
   }
 
   _updateTestHint() {
@@ -570,14 +596,10 @@ export default class extends Controller {
 
   _isYoutubeUrl(u) {
     try {
-      const x = new URL(u);
-      return [
-        "www.youtube.com",
-        "youtube.com",
-        "m.youtube.com",
-        "music.youtube.com",
-        "youtu.be",
-      ].includes(x.hostname);
+      const h = new URL(u).hostname.toLowerCase();
+      return (
+        h === "youtu.be" || h === "youtube.com" || h.endsWith(".youtube.com")
+      );
     } catch {
       return false;
     }
@@ -586,33 +608,32 @@ export default class extends Controller {
   _normalizeToYouTubeWatch(u) {
     try {
       const x = new URL(u);
-      if (x.hostname === "youtu.be")
-        return `https://www.youtube.com/watch?v=${x.pathname.slice(1)}`;
-      if (
-        x.hostname === "music.youtube.com" ||
-        x.hostname === "m.youtube.com"
-      ) {
-        const v = x.searchParams.get("v");
-        if (v) return `https://www.youtube.com/watch?v=${v}`;
+      const host = x.hostname.toLowerCase();
+      let id = null;
+      if (host === "youtu.be") {
+        id = x.pathname.slice(1);
+      } else if (x.pathname.startsWith("/shorts/")) {
+        id = x.pathname.split("/")[2];
+      } else if (x.pathname.startsWith("/embed/")) {
+        id = x.pathname.split("/")[2];
+      } else {
+        id = x.searchParams.get("v");
       }
-      return u;
+      if (!id) return u; // どうしても拾えない時は原文返し
+      const clean = new URL("https://www.youtube.com/watch");
+      clean.searchParams.set("v", id);
+      // 再生位置は維持（他のノイズは捨てる）
+      const t = x.searchParams.get("t") || x.searchParams.get("start");
+      if (t) clean.searchParams.set("t", t);
+      return clean.toString();
     } catch {
       return u;
     }
   }
 
-  // watch?v=... のみに正規化（list, t 等は捨てる）
+  // watch?v=... に正規化（t/startだけ残す）
   _sanitizeYouTube(raw) {
-    try {
-      const norm = this._normalizeToYouTubeWatch(raw);
-      const u = new URL(norm);
-      const v = u.searchParams.get("v");
-      const clean = new URL("https://www.youtube.com/watch");
-      if (v) clean.searchParams.set("v", v);
-      return clean.toString();
-    } catch {
-      return raw;
-    }
+    return this._normalizeToYouTubeWatch(raw);
   }
 
   // ===== YouTube 簡易プレビュー（このタブで数秒だけ） =====
@@ -632,10 +653,10 @@ export default class extends Controller {
   _extractYouTubeId(u) {
     try {
       const x = new URL(u);
-      if (x.hostname === "youtu.be") return x.pathname.slice(1);
-      if (x.searchParams.get("v")) return x.searchParams.get("v");
-      const m = x.pathname.match(/\/embed\/([^/?#]+)/);
-      return m ? m[1] : null;
+      if (x.hostname.toLowerCase() === "youtu.be") return x.pathname.slice(1);
+      if (x.pathname.startsWith("/shorts/")) return x.pathname.split("/")[2];
+      if (x.pathname.startsWith("/embed/")) return x.pathname.split("/")[2];
+      return x.searchParams.get("v");
     } catch {
       return null;
     }
@@ -651,8 +672,7 @@ export default class extends Controller {
     let mount = this.hasYtTestTarget ? this.ytTestTarget : null;
     if (!mount) {
       mount = document.createElement("div");
-      mount.style.cssText =
-        "position:absolute;width:1px;height:1px;overflow:hidden;pointer-events:none;";
+      mount.className = "na-visually-hidden";
       this.element.appendChild(mount);
       this._ytTempMount = mount;
     }

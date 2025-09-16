@@ -57,6 +57,21 @@
   .input-nap {
     @apply w-full rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2 text-slate-100;
   }
+  /* 共通：入力右端のクリアボタン */
+  .na-clear-btn {
+    @apply absolute right-2 top-1/2 -translate-y-1/2
+         inline-flex items-center justify-center select-none
+          h-10 w-10 rounded-full z-20
+          text-xl leading-none font-semibold
+          focus:outline-none focus:ring focus:ring-red-200;
+    /* 被っても読みやすいように薄い背景を敷く（ダークも対応） */
+    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm;
+  }
+  /* 赤テーマ＋ホバー/アクティブ */
+  .na-clear-btn--red {
+    @apply text-red-600 hover:text-red-700
+           hover:bg-red-50/90 active:bg-red-100/90;
+  }
 }
 
 @layer utilities {
@@ -67,6 +82,10 @@
   }
   .no-spin {
     -moz-appearance: textfield;
+  }
+
+  .na-visually-hidden {
+    @apply absolute w-px h-px overflow-hidden pointer-events-none -m-px p-0 border-0 opacity-0;
   }
 
   /* フォームの4ボタン＋送信 */

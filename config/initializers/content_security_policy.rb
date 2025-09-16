@@ -6,7 +6,10 @@ Rails.application.configure do
     policy.default_src :self, :https
     policy.font_src    :self, :https, :data
     policy.object_src  :none
+    policy.media_src   :self, :https
     policy.connect_src :self, :https, "https://www.youtube.com", "https://www.google.com"
+    policy.directives['style-src-attr'] = ["'unsafe-inline'"]
+    policy.style_src_attr :unsafe_inline
 
     # 画像（YouTubeサムネ等）
     policy.img_src     :self, :https, :data, "https://i.ytimg.com", "https://yt3.ggpht.com"

@@ -75,10 +75,24 @@
           </select>
           <!-- 外部URL入力（YouTube） -->
           <div class="flex items-center gap-3" data-alarm-form-target="urlRow" hidden>
-            <%= url_field_tag :music_url, nil,
-              placeholder: "https://www.youtube.com/watch?v=...",
-              class: "w-full rounded bg-white border border-gray-400 px-3 py-3 text-gray-900 placeholder-gray-400",
-              data: { "alarm-form-target": "musicUrl", action: "input->alarm-form#urlChanged" } %>
+            <div class="relative w-full">
+              <%= url_field_tag :music_url, nil,
+                placeholder: "https://www.youtube.com/watch?v=...",
+                class: "w-full rounded bg-white border border-gray-400 px-3 py-3 pr-16 text-gray-900 placeholder-gray-400",
+                data: { "alarm-form-target": "musicUrl", action: "input->alarm-form#urlChanged keydown->alarm-form#onUrlKeydown" } %>
+              <button type="button"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 z-20
+                           inline-flex items-center justify-center select-none
+                           h-10 w-10 rounded-full text-xl leading-none font-semibold
+                           text-red-600 hover:text-red-700
+                           bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm
+                           hover:bg-red-50/90 active:bg-red-100/90
+                           focus:outline-none focus:ring focus:ring-red-200"
+                    aria-label="URLをクリア"
+                    data-alarm-form-target="clearBtn"
+                    data-action="alarm-form#clearUrl"
+                    hidden>&times;</button>
+            </div>
           </div>
           <!-- テスト／停止（hoverはCSSが担当：枠そのまま、背景だけ暗く） -->
           <div class="flex items-center gap-3">
@@ -112,7 +126,7 @@
           </div>
           <!-- 同タブYouTubeテストの iframe 埋め込み先（非表示でOK） -->
           <div data-alarm-form-target="ytTest"
-               style="position:absolute;width:1px;height:1px;overflow:hidden;pointer-events:none;"
+               class="na-visually-hidden"
                aria-hidden="true"></div>
           <!-- 音量 -->
           <div class="flex items-center gap-3">
