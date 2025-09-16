@@ -1,31 +1,30 @@
 # Be sure to restart your server when you modify this file.
 
-# Define an application-wide content security policy.
-# See the Securing Rails Applications Guide for more information:
-# https://guides.rubyonrails.org/security.html#content-security-policy-header
+Rails.application.configure do
+  config.content_security_policy do |policy|
+    # ベース
+    policy.default_src :self, :https
+    policy.font_src    :self, :https, :data
+    policy.object_src  :none
+    policy.connect_src :self, :https, "https://www.youtube.com", "https://www.google.com"
 
-# Rails.application.configure do
-#   config.content_security_policy do |policy|
-#     policy.default_src :self, :https
-#     policy.font_src    :self, :https, :data
-#     policy.img_src     :self, :https, :data
-#     policy.object_src  :none
-#     policy.script_src  :self, :https
-#     policy.style_src   :self, :https
-#     # Specify URI for violation reports
-#     # policy.report_uri "/csp-violation-report-endpoint"
-#   end
-#
-#   # Generate session nonces for permitted importmap, inline scripts, and inline styles.
-#   config.content_security_policy_nonce_generator = ->(request) { request.session.id.to_s }
-#   config.content_security_policy_nonce_directives = %w(script-src style-src)
-#
-#   # Report violations without enforcing the policy.
-#   # config.content_security_policy_report_only = true
-# end
+    # 画像（YouTubeサムネ等）
+    policy.img_src     :self, :https, :data, "https://i.ytimg.com", "https://yt3.ggpht.com"
 
-# CSP穴埋め
-policy.script_src  :self, :https, "https://www.youtube.com", "https://s.ytimg.com"
-policy.frame_src   :self, :https, "https://www.youtube.com"
-policy.connect_src :self, :https, "https://www.youtube.com", "https://www.google.com"
-policy.img_src     :self, :https, "https://i.ytimg.com", "https://yt3.ggpht.com"
+    # スクリプト／フレーム（YouTube/IFrame API）
+    policy.script_src  :self, :https, "https://www.youtube.com", "https://s.ytimg.com"
+    policy.frame_src   :self, :https, "https://www.youtube.com", "https://www.youtube-nocookie.com"
+
+    # スタイル：開発だけはインライン許可（あなたの <style id="bg-hotfix"> 用）
+    if Rails.env.development?
+      policy.style_src :self, :https, :unsafe_inline
+    else
+      policy.style_src :self, :https
+    end
+  end
+
+  # （必要なら）nonce を有効化 — importmap/inline を安全に通す
+  config.content_security_policy_nonce_generator  = ->(request) { request.session.id.to_s }
+  config.content_security_policy_nonce_directives = %w[script-src style-src]
+  # config.content_security_policy_report_only = true
+end

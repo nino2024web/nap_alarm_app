@@ -1,125 +1,153 @@
-<div class="mx-auto max-w-xl p-6">
-  <h1 class="text-2xl font-semibold">Nap Alarm</h1>
-  <% if flash[:alert] %>
-    <p class="mt-3 text-red-600"><%= flash[:alert] %></p>
+<% content_for :main_class, 'container mx-auto px-5 mt-[5px]' %>
+<div class="min-h-screen bg-white text-gray-900 lg:px-[200px]"><!-- PC時だけ左右広告ぶんの余白 -->
+  <% if lookup_context.exists?("shared/ad_left") %>
+    <div class="hidden lg:block fixed left-0 top-0 h-screen w-[180px]">
+      <div class="sticky top-6"><%= render "shared/ad_left" %></div>
+    </div>
   <% end %>
-  <%= form_with url: alarm_path, method: :post, local: true, class: "mt-6 space-y-6", data: { controller: "alarm-form" }  do |f| %>
-    <!-- 時間（プリセット＋カスタム） -->
-    <fieldset class="space-y-2" data-action="change->alarm-form#presetChanged">
-      <legend class="font-medium">時間（どれにする？）</legend>
-      <div class="flex flex-wrap gap-4">
-        <label class="inline-flex items-center gap-2"><%= radio_button_tag :preset, "15", true %><span>15分</span></label>
-        <label class="inline-flex items-center gap-2"><%= radio_button_tag :preset, "20" %><span>20分</span></label>
-        <label class="inline-flex items-center gap-2"><%= radio_button_tag :preset, "30" %><span>30分</span></label>
-        <label class="inline-flex items-center gap-2"><%= radio_button_tag :preset, "45" %><span>45分</span></label>
-        <label class="inline-flex items-center gap-2"><%= radio_button_tag :preset, "60" %><span>60分</span></label>
-        <label class="inline-flex items-center gap-2">
-          <%= radio_button_tag :preset, "custom" %><span>カスタム</span>
-          <div class="ml-2 inline-flex items-center gap-2">
-            <%= number_field_tag :custom_hours, 0, min: 0, max: 24, step: 1,
-                  class: "w-16 border rounded px-2 py-1 no-spin",
-                  data: { "alarm-form-target": "hours" } %><span>時間</span>
-            <%= number_field_tag :custom_minutes, 0, min: 0, max: 59, step: 1,
-                  class: "w-16 border rounded px-2 py-1 no-spin",
-                  data: { "alarm-form-target": "minutes" } %><span>分</span>
-            <%= number_field_tag :custom_seconds, 0, min: 0, max: 59, step: 1,
-                  class: "w-16 border rounded px-2 py-1 no-spin",
-                  data: { "alarm-form-target": "seconds" } %><span>秒</span>
+  <% if lookup_context.exists?("shared/ad_right") %>
+    <div class="hidden lg:block fixed right-0 top-0 h-screen w-[180px]">
+      <div class="sticky top-6"><%= render "shared/ad_right" %></div>
+    </div>
+  <% end %>
+  <div class="mx-auto max-w-xl p-6">
+    <h1 class="text-3xl md:text-4xl font-bold">Nap Alarm</h1>
+    <% if flash[:alert] %>
+      <p class="mt-3 text-rose-600"><%= flash[:alert] %></p>
+    <% end %>
+    <%= form_with url: alarm_path, method: :post, local: true,
+          class: "mt-6 space-y-6 text-[17px] md:text-base",
+          data: { controller: "alarm-form" } do |f| %>
+      <!-- 時間（プリセット＋カスタム） -->
+      <fieldset class="space-y-2" data-action="change->alarm-form#presetChanged">
+        <legend class="font-semibold text-lg md:text-xl">時間（どれにする？）</legend>
+        <div class="flex flex-wrap gap-4 text-base md:text-lg">
+          <label class="inline-flex items-center gap-2 text-gray-700">
+            <%= radio_button_tag :preset, "15", true %><span>15分</span>
+          </label>
+          <label class="inline-flex items-center gap-2 text-gray-700">
+            <%= radio_button_tag :preset, "20" %><span>20分</span>
+          </label>
+          <label class="inline-flex items-center gap-2 text-gray-700">
+            <%= radio_button_tag :preset, "30" %><span>30分</span>
+          </label>
+          <label class="inline-flex items-center gap-2 text-gray-700">
+            <%= radio_button_tag :preset, "45" %><span>45分</span>
+          </label>
+          <label class="inline-flex items-center gap-2 text-gray-700">
+            <%= radio_button_tag :preset, "60" %><span>60分</span>
+          </label>
+          <label class="inline-flex items-center gap-2 text-gray-700">
+            <%= radio_button_tag :preset, "custom" %><span>カスタム</span>
+            <div class="ml-2 inline-flex items-center gap-2">
+              <%= number_field_tag :custom_hours, 0, min: 0, max: 24, step: 1,
+                    class: "w-20 rounded bg-white border border-gray-400 px-3 py-2 text-gray-900 no-spin",
+                    data: { "alarm-form-target": "hours" } %><span class="text-gray-500">時間</span>
+              <%= number_field_tag :custom_minutes, 0, min: 0, max: 59, step: 1,
+                    class: "w-20 rounded bg-white border border-gray-400 px-3 py-2 text-gray-900 no-spin",
+                    data: { "alarm-form-target": "minutes" } %><span class="text-gray-500">分</span>
+              <%= number_field_tag :custom_seconds, 0, min: 0, max: 59, step: 1,
+                    class: "w-20 rounded bg-white border border-gray-400 px-3 py-2 text-gray-900 no-spin",
+                    data: { "alarm-form-target": "seconds" } %><span class="text-gray-500">秒</span>
+            </div>
+          </label>
+        </div>
+      </fieldset>
+      <!-- アラーム音の選択 -->
+      <fieldset class="space-y-2">
+        <legend class="font-semibold text-lg md:text-xl">アラーム音</legend>
+        <p class="text-base text-gray-600">
+          YouTubeのURLを貼ると曲名を表示します。
+        </p>
+        <p class="text-base text-gray-600">
+          ※ 未入力・無効な場合はデフォルト音（Bell）で鳴ります。
+        </p>
+        <div class="grid gap-3">
+          <select class="w-full rounded bg-white border border-gray-400 px-3 py-3 text-gray-900 transition"
+                  data-alarm-form-target="source"
+                  data-action="change->alarm-form#sourceChanged">
+            <option value="youtube">YouTubeリンク（下記枠にURLを貼ってください）</option>
+            <option value="asset:<%= asset_path('alarm/bell.wav') %>">Bell（デフォルト）</option>
+            <option value="asset:<%= asset_path('alarm/chime.wav') %>">Chime（デフォルト）</option>
+            <option value="asset:<%= asset_path('alarm/digital.wav') %>">Digital（デフォルト）</option>
+            <option value="asset:<%= asset_path('alarm/marimba.wav') %>">Marimba風（デフォルト）</option>
+            <option value="asset:<%= asset_path('alarm/radar.wav') %>">Radar風（デフォルト）</option>
+          </select>
+          <!-- 外部URL入力（YouTube） -->
+          <div class="flex items-center gap-3" data-alarm-form-target="urlRow" hidden>
+            <%= url_field_tag :music_url, nil,
+              placeholder: "https://www.youtube.com/watch?v=...",
+              class: "w-full rounded bg-white border border-gray-400 px-3 py-3 text-gray-900 placeholder-gray-400",
+              data: { "alarm-form-target": "musicUrl", action: "input->alarm-form#urlChanged" } %>
           </div>
-        </label>
-      </div>
-    </fieldset>
-    <!-- アラーム音の選択 -->
-    <fieldset class="space-y-2">
-      <legend class="font-medium">アラーム音</legend>
-      <p class="text-sm text-gray-600">
-        YouTubeのリンクを貼れば曲名を表示するよ。再生確認は同じタブで開く方式。
-      </p>
-      <div class="grid gap-3">
-        <select class="w-full border rounded px-3 py-2"
-                data-alarm-form-target="source"
-                data-action="change->alarm-form#sourceChanged">
-          <option value="youtube">YouTubeリンク（下記枠にURLを貼ってください）</option>
-          <option value="asset:<%= asset_path('alarm/bell.wav') %>">Bell（デフォルト）</option>
-          <option value="asset:<%= asset_path('alarm/chime.wav') %>">Chime（デフォルト）</option>
-          <option value="asset:<%= asset_path('alarm/digital.wav') %>">Digital（デフォルト）</option>
-          <option value="asset:<%= asset_path('alarm/marimba.wav') %>">Marimba風（デフォルト）</option>
-          <option value="asset:<%= asset_path('alarm/radar.wav') %>">Radar風（デフォルト）</option>
-        </select>
-        <!-- 外部URL入力（YouTube） -->
-        <div class="flex items-center gap-3" data-alarm-form-target="urlRow" hidden>
-          <%= url_field_tag :music_url, nil,
-            placeholder: "https://www.youtube.com/watch?v=...",
-            class: "w-full border rounded px-3 py-2",
-            data: { "alarm-form-target": "musicUrl", action: "input->alarm-form#urlChanged" } %>
+          <!-- テスト／停止（hoverはCSSが担当：枠そのまま、背景だけ暗く） -->
+          <div class="flex items-center gap-3">
+            <button type="button"
+                    class="inline-flex items-center justify-center rounded border border-gray-400 px-4 py-3 text-base
+                           bg-white text-gray-900 transition-colors"
+                    data-action="alarm-form#testSound">
+              音楽をテスト
+            </button>
+            <button type="button"
+                    class="inline-flex items-center justify-center rounded border border-gray-400 px-4 py-3 text-base
+                           bg-white text-gray-900 transition-colors"
+                    data-action="alarm-form#stopTest">
+              停止
+            </button>
+            <span class="text-sm text-gray-600" data-alarm-form-target="testHint"></span>
+          </div>
+          <!-- YouTube題名 -->
+          <div class="rounded border border-gray-400 p-4 space-y-2" data-alarm-form-target="ytMeta" hidden>
+            <div class="text-xs text-gray-500">YouTube題名</div>
+            <div class="text-base" data-alarm-form-target="ytTitle">（URL未入力：ここにURLを貼ってください）</div>
+            <p class="text-xs text-gray-500">
+              URLは「https://www.youtube.com/watch?v=...」形式（短縮 youtu.be もOK）。
+            </p>
+            <button type="button"
+                    class="inline-flex items-center justify-center rounded border border-gray-400 px-4 py-3 text-base
+                           bg-white text-gray-900 transition-colors"
+                    data-action="alarm-form#openYoutube">
+              YouTubeを開く
+            </button>
+          </div>
+          <!-- 同タブYouTubeテストの iframe 埋め込み先（非表示でOK） -->
+          <div data-alarm-form-target="ytTest"
+               style="position:absolute;width:1px;height:1px;overflow:hidden;pointer-events:none;"
+               aria-hidden="true"></div>
+          <!-- 音量 -->
+          <div class="flex items-center gap-3">
+            <label class="text-base text-gray-600">音量</label>
+            <input type="range" min="0" max="1" step="0.01" value="1"
+                   class="w-full accent-emerald-500"
+                   data-action="input->alarm-form#volumeChanged"
+            data-alarm-form-target="volume">
+            <span class="text-base text-gray-700" data-alarm-form-target="volLabel">100%</span>
+          </div>
+          <!-- 送信（hoverはCSS側で制御） -->
+          <%= f.submit "アラーム開始へ",
+                class: "w-full inline-flex items-center justify-center rounded border border-gray-400 px-5 py-3 text-lg
+                        bg-white text-gray-900 transition-colors
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" %>
+          <!-- モバイル: “開始”の下に広告（存在する時だけ） -->
+          <% if lookup_context.exists?("shared/ad_mobile") %>
+            <div class="lg:hidden mt-4">
+              <%= render "shared/ad_mobile" %>
+            </div>
+          <% end %>
+          <!-- 履歴 -->
+          <div class="mt-1">
+            <h2 class="font-semibold text-lg">直近10件</h2>
+            <ul class="space-y-2" data-alarm-form-target="historyList"></ul>
+            <button type="button"
+                    class="mt-2 inline-flex items-center justify-center rounded border border-gray-400 px-4 py-3 text-base
+                           bg-white text-gray-900 transition-colors"
+                    data-action="alarm-form#clearHistory">
+              履歴クリア
+            </button>
+          </div>
         </div>
-        <!-- テスト／停止は常時表示（asset でも押せる） -->
-        <div class="flex items-center gap-3">
-          <button type="button"
-                  class="inline-flex items-center justify-center rounded border px-3 py-2
-                         transition-colors hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700
-                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                  data-action="alarm-form#testSound">
-            音をテスト
-          </button>
-          <button type="button"
-                  class="inline-flex items-center justify-center rounded border px-3 py-2
-                         transition-colors hover:bg-rose-50 hover:border-rose-400 hover:text-rose-700
-                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-                  data-action="alarm-form#stopTest">
-            停止
-          </button>
-          <span class="text-xs text-gray-500" data-alarm-form-target="testHint"></span>
-        </div>
-        <!-- YouTube題名＋同タブプレビュー -->
-        <div class="rounded border p-3 space-y-2" data-alarm-form-target="ytMeta" hidden>
-          <div class="text-xs text-gray-600">YouTube題名</div>
-          <div class="text-sm" data-alarm-form-target="ytTitle">（URL未入力）</div>
-          <p class="text-xs text-gray-500">
-            URLは「https://www.youtube.com/watch?v=...」形式で貼ってね（短縮 youtu.be もOK）。
-          </p>
-          <button type="button"
-          class="inline-flex items-center justify-center rounded border px-3 py-2
-                 transition-colors hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700
-                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-          data-action="alarm-form#openYoutube">
-            YouTubeを開く
-          </button>
-        </div>
-        <!-- 同タブYouTubeテストの iframe 埋め込み先（非表示でOK） -->
-        <div data-alarm-form-target="ytTest"
-        style="position:absolute;width:1px;height:1px;overflow:hidden;pointer-events:none;"
-        aria-hidden="true">
-        </div>
-        <!-- 音量 -->
-        <div class="flex items-center gap-3">
-          <label class="text-sm text-gray-600">音量</label>
-          <input type="range" min="0" max="1" step="0.01" value="1"
-                 class="w-full"
-                 data-alarm-form-target="volume"
-                 data-action="input->alarm-form#volumeChanged">
-          <span class="text-sm text-gray-600" data-alarm-form-target="volLabel">100%</span>
-        </div>
-        <!-- 送信（hover色あり） -->
-        <%= f.submit "アラーム開始へ",
-          class: "inline-flex items-center justify-center rounded border px-4 py-2
-                  transition-colors hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" %>
-        <!-- 履歴 -->
-        <div class="mt-1">
-          <h2 class="font-medium">直近10件</h2>
-          <ul class="space-y-2" data-alarm-form-target="historyList"></ul>
-          <button type="button"
-                  class="mt-2 inline-flex items-center justify-center rounded border px-3 py-2
-                         transition-colors hover:bg-slate-50 hover:border-slate-400 hover:text-slate-700
-                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-                  data-action="alarm-form#clearHistory">
-            履歴クリア
-          </button>
-        </div>
-      </div>
-    </fieldset>
-    <!-- 鳴動時間の固定（“30秒”フォールバック用） -->
-    <%= hidden_field_tag :ring_seconds, 30 %>
-  <% end %>
+      </fieldset>
+      <%= hidden_field_tag :ring_seconds, 30 %>
+    <% end %>
+  </div>
 </div>

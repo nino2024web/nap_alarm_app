@@ -3,6 +3,7 @@ import { Controller } from "@hotwired/stimulus";
 
 const HISTORY_KEY = "nap_alarm_history";
 const VOL_KEY = "nap_volume";
+const MIN_MS = 60 * 1000; // 最低1分
 
 export default class extends Controller {
   static targets = [
@@ -38,14 +39,21 @@ export default class extends Controller {
     // 初期UI
     this.sourceChanged();
     this.presetChanged();
+    this._sweepHistory(); // ← 1回だけでOK
     this._renderHistory();
 
-    // フォーム送信でのみ履歴保存
+    // フォーム送信でのみ履歴保存（0分はalertで止める）
     this.formEl =
       this.element.closest("form") || this.element.querySelector("form");
-    this._onSubmit = () => {
+    this._onSubmit = (e) => {
       this._syncMusicUrlForSubmit();
-      this._saveHistoryOnSubmit();
+      const ms = this._currentDurationMs();
+      if (ms < MIN_MS) {
+        e.preventDefault();
+        alert("0分は設定できません。1分以上を指定してください。");
+        return;
+      }
+      this._saveHistoryOnSubmit(ms);
     };
     if (this.formEl) this.formEl.addEventListener("submit", this._onSubmit);
 
@@ -146,7 +154,7 @@ export default class extends Controller {
     }
   }
 
-  // ===== テスト再生（履歴保存なし／リンクは開かない）／リンクは開かない）=====
+  // ===== テスト再生（履歴保存なし／リンクは開かない）=====
   async testSound() {
     const { type, url } = this._resolveSource();
 
@@ -163,27 +171,21 @@ export default class extends Controller {
         this.musicUrlTarget?.focus();
         return;
       }
-      // 短時間の同タブ試聴。失敗してもリンクは開かない。
       const started = await this._playYoutubeInline(raw, { previewMs: 8000 });
-      if (!started) {
-        alert(
-          "無効のURLです。『YouTubeを開く』押して確認してください。"
-        );
-      }
+      if (!started)
+        alert("無効のURLです。『YouTubeを開く』押して確認してください。");
       return;
     }
   }
 
-  //  別タブで YouTube を開く（ユーザーが明示的に押したときだけ）
+  //  別タブで YouTube を開く
   openYoutube() {
     const raw = (this.musicUrlTarget?.value || "").trim();
     const HOMEPAGE = "https://www.youtube.com/";
-
     if (!raw || !this._isYoutubeUrl(raw)) {
       window.open(HOMEPAGE, "_blank", "noopener");
       return;
     }
-    // YouTubeリンクっぽい → watch?v=... に正規化して開く
     const url = this._sanitizeYouTube(raw);
     window.open(url, "_blank", "noopener");
   }
@@ -248,11 +250,13 @@ export default class extends Controller {
     this._renderHistory();
   }
 
-  _saveHistoryOnSubmit() {
+  _saveHistoryOnSubmit(presetMs) {
     const { type, url } = this._resolveSource();
-    const ms = this._currentDurationMs();
+    const ms = Number.isFinite(presetMs) ? presetMs : this._currentDurationMs();
+    if (ms < MIN_MS) return; // 最低1分
     const raw = (this.musicUrlTarget?.value || "").trim();
     const label = this._currentLabelForHistory(type, url, raw);
+
     const item = {
       duration_ms: ms,
       music_url: type === "youtube" ? this._sanitizeYouTube(raw) : url,
@@ -263,15 +267,16 @@ export default class extends Controller {
 
     const list = this._loadHistory();
     const key = (it) => `${it.duration_ms}|${it.music_url}|${it.kind}`;
-    const seen = new Set([key(item)]);
-    const out = [item];
-    for (const it of list) {
-      const k = key(it);
-      if (seen.has(k)) continue;
-      seen.add(k);
-      out.push(it);
-      if (out.length >= 10) break;
+
+    // 重複マージ（ラベルの“良い方”を採用）
+    const idx = list.findIndex((it) => key(it) === key(item));
+    if (idx >= 0) {
+      const old = list[idx];
+      item.label = this._betterLabel(item.label, old.label, item.kind);
+      list.splice(idx, 1);
     }
+
+    const out = [item, ...list].slice(0, 10);
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(out));
     } catch {}
@@ -301,7 +306,9 @@ export default class extends Controller {
 
   _renderHistory() {
     if (!this.hasHistoryListTarget) return;
-    const list = this._loadHistory();
+    const list = this._loadHistory().filter(
+      (it) => (Number(it.duration_ms) || 0) >= MIN_MS
+    );
     this.historyListTarget.innerHTML = "";
     if (!list.length) {
       this.historyListTarget.insertAdjacentHTML(
@@ -348,6 +355,18 @@ export default class extends Controller {
     }
   }
 
+  _sweepHistory() {
+    const list = this._loadHistory();
+    const cleaned = list
+      .filter((it) => (Number(it.duration_ms) || 0) >= MIN_MS)
+      .slice(0, 10);
+    if (cleaned.length !== list.length) {
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(cleaned));
+      } catch {}
+    }
+  }
+
   _apply(it) {
     const presets = [15, 20, 30, 45, 60];
     const totalMin = Math.round(it.duration_ms / 60000);
@@ -382,7 +401,6 @@ export default class extends Controller {
     if (mu) mu.value = it.music_url || "";
     this.presetChanged();
 
-    // 音源を反映
     const url = it.music_url || "";
     const kind = it.kind || (this._isYoutubeUrl(url) ? "youtube" : "asset");
 
@@ -406,6 +424,29 @@ export default class extends Controller {
     } catch {
       return [];
     }
+  }
+
+  // ===== ラベル比較ヘルパー =====
+  _isGenericLabel(label, kind) {
+    const s = (label || "").trim();
+    if (!s) return true;
+    const generic = new Set([
+      "YouTube",
+      "デフォルト音源",
+      "External",
+      "Default",
+    ]);
+    if (generic.has(s)) return true;
+    if (kind === "youtube" && s.length <= 3) return true; // ドメインだけ等
+    return false;
+  }
+
+  _betterLabel(a, b, kind) {
+    const aGen = this._isGenericLabel(a, kind);
+    const bGen = this._isGenericLabel(b, kind);
+    if (aGen && !bGen) return b;
+    if (!aGen && bGen) return a;
+    return (b || "").length > (a || "").length ? b : a; // 同士なら長い方
   }
 
   // ===== ボリューム =====
@@ -560,7 +601,7 @@ export default class extends Controller {
     }
   }
 
-  // watch?v=... だけ残す（list, t などは捨てる）
+  // watch?v=... のみに正規化（list, t 等は捨てる）
   _sanitizeYouTube(raw) {
     try {
       const norm = this._normalizeToYouTubeWatch(raw);
@@ -636,7 +677,6 @@ export default class extends Controller {
             try {
               e.target.playVideo();
             } catch {}
-            // 再生開始確認（最大2秒）
             const t0 = performance.now();
             const waitPlay = () => {
               try {

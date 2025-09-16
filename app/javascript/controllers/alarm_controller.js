@@ -29,13 +29,22 @@ export default class extends Controller {
     // 音量
     const saved = parseFloat(localStorage.getItem("nap_volume") || "1");
     this._volume = Number.isFinite(saved) ? Math.min(Math.max(saved, 0), 1) : 1;
-    try { this.audioTarget.volume = this._volume; } catch {}
+    try {
+      this.audioTarget.volume = this._volume;
+    } catch {}
 
     // 初期表示
-    const dur = Number.isFinite(this.durationValue) && this.durationValue > 0 ? this.durationValue : null;
-    const end = Number.isFinite(this.endsAtValue) && this.endsAtValue > 0 ? this.endsAtValue : null;
+    const dur =
+      Number.isFinite(this.durationValue) && this.durationValue > 0
+        ? this.durationValue
+        : null;
+    const end =
+      Number.isFinite(this.endsAtValue) && this.endsAtValue > 0
+        ? this.endsAtValue
+        : null;
     this._initialMs = dur ?? Math.max(0, end ? end - Date.now() : 0);
-    if (!Number.isFinite(this._initialMs) || this._initialMs < 0) this._initialMs = 0;
+    if (!Number.isFinite(this._initialMs) || this._initialMs < 0)
+      this._initialMs = 0;
 
     this._remainingMs = this._initialMs;
     this._render(this._remainingMs);
@@ -65,7 +74,8 @@ export default class extends Controller {
     // キー操作
     this._onKeydown = (e) => {
       const t = e.target;
-      const typing = t && t.closest('input,textarea,select,[contenteditable="true"]');
+      const typing =
+        t && t.closest('input,textarea,select,[contenteditable="true"]');
       if (typing || e.altKey || e.ctrlKey || e.metaKey) return;
 
       if (e.code === "KeyS" || e.key === "s" || e.key === "S") {
@@ -74,8 +84,12 @@ export default class extends Controller {
       }
       if (e.code === "Space" || e.key === " ") {
         e.preventDefault();
-        if (this._ringing) { this.stop(); return; }
-        if (this._paused) this.start(); else this.pause();
+        if (this._ringing) {
+          this.stop();
+          return;
+        }
+        if (this._paused) this.start();
+        else this.pause();
       }
       if (e.code === "Escape" || e.key === "Escape") {
         e.preventDefault();
@@ -140,21 +154,46 @@ export default class extends Controller {
 
   async reset() {
     this._paused = true;
+
+    // タイマー類クリア
     this._clear();
+
+    // ★ 音を全部止める
+    this._cancelBeepLoop();
+    if (this._ringStopTimeout) {
+      // ← 鳴動上限のタイマー解除
+      clearTimeout(this._ringStopTimeout);
+      this._ringStopTimeout = null;
+    }
     this._stopSound();
+    try {
+      this._ytPlayer?.stopVideo();
+    } catch {}
+    this._ytPrepared = false;
+
+    // UIと環境後始末
     this._unbindBeforeUnload();
     await this._releaseWakeLock();
     this._stopAlerts();
     this._setRingingUI(false);
 
-    this._remainingMs = this._initialMs;
+    // 時間を初期値へ
+    this._remainingMs = this._initialMs ?? 0;
     this._render(this._remainingMs);
   }
 
   stop() {
+    this._clear();
     this._cancelBeepLoop();
-    if (this._ringStopTimeout) { clearTimeout(this._ringStopTimeout); this._ringStopTimeout = null; }
-    if (this._ytPlayer) { try { this._ytPlayer.stopVideo(); } catch {} }
+    if (this._ringStopTimeout) {
+      clearTimeout(this._ringStopTimeout);
+      this._ringStopTimeout = null;
+    }
+    if (this._ytPlayer) {
+      try {
+        this._ytPlayer.stopVideo();
+      } catch {}
+    }
     this._ytPrepared = false;
     this._stopSound();
     this._stopAlerts();
@@ -201,7 +240,9 @@ export default class extends Controller {
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
-    this.displayTarget.textContent = [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
+    this.displayTarget.textContent = [h, m, s]
+      .map((v) => String(v).padStart(2, "0"))
+      .join(":");
   }
 
   // ====== 鳴動 ======
@@ -219,7 +260,7 @@ export default class extends Controller {
         this._scheduleStopAfter(this._ringDurationMsForNonYouTube());
       } else if (isYT) {
         // まずは準備→アンミュート
-        const prepared = this._ytPrepared || await this._prepareYouTube(url);
+        const prepared = this._ytPrepared || (await this._prepareYouTube(url));
         if (prepared) started = await this._unmutePreparedYouTube();
 
         if (!started) {
@@ -281,7 +322,10 @@ export default class extends Controller {
   }
 
   _clear() {
-    if (this._timer) { clearInterval(this._timer); this._timer = null; }
+    if (this._timer) {
+      clearInterval(this._timer);
+      this._timer = null;
+    }
   }
 
   // ====== ビープ ======
@@ -320,62 +364,119 @@ export default class extends Controller {
     osc.start();
     this._osc = osc;
     await new Promise((res) => setTimeout(res, duration));
-    try { osc.stop(); } catch {}
-    try { osc.disconnect(); } catch {}
-    try { gain.disconnect(); } catch {}
+    try {
+      osc.stop();
+    } catch {}
+    try {
+      osc.disconnect();
+    } catch {}
+    try {
+      gain.disconnect();
+    } catch {}
     await ctx.close();
     this._osc = null;
     this._ctx = null;
   }
 
   _stopSound() {
-    try { this.audioTarget.pause(); this.audioTarget.currentTime = 0; } catch {}
-    if (this._osc) { try { this._osc.stop(); } catch {}; try { this._osc.disconnect(); } catch {}; this._osc = null; }
-    if (this._ctx) { this._ctx.close().catch(()=>{}); this._ctx = null; }
+    try {
+      if (this.hasAudioTarget) {
+        const a = this.audioTarget;
+        a.pause();
+        a.loop = false;
+        a.currentTime = 0;
+        a.load();
+      }
+    } catch {}
+
+    if (this._osc) {
+      try {
+        this._osc.stop();
+      } catch {}
+      try {
+        this._osc.disconnect();
+      } catch {}
+      this._osc = null;
+    }
+    if (this._ctx) {
+      this._ctx.close().catch(() => {});
+      this._ctx = null;
+    }
+
     this._ringing = false;
-    if (this._remainingMs <= 0) { this._unbindBeforeUnload(); this._paused = true; }
+    if (this._remainingMs <= 0) {
+      this._unbindBeforeUnload();
+      this._paused = true;
+    }
   }
 
   // ====== Wake Lock / 通知 ======
   async _requestWakeLock() {
     try {
       if ("wakeLock" in navigator) {
-        if (this._wakeLock) { try { await this._wakeLock.release(); } catch {} this._wakeLock = null; }
+        if (this._wakeLock) {
+          try {
+            await this._wakeLock.release();
+          } catch {}
+          this._wakeLock = null;
+        }
         this._wakeLock = await navigator.wakeLock.request("screen");
         this._wakeLock.addEventListener("release", () => {});
       }
-    } catch (e) { console.warn("Wake Lock 拒否/失敗:", e); }
+    } catch (e) {
+      console.warn("Wake Lock 拒否/失敗:", e);
+    }
   }
-  async _releaseWakeLock() { try { await this._wakeLock?.release(); } catch {}; this._wakeLock = null; }
+  async _releaseWakeLock() {
+    try {
+      await this._wakeLock?.release();
+    } catch {}
+    this._wakeLock = null;
+  }
 
   async _notifyComplete() {
     try {
       if ("Notification" in window) {
-        if (Notification.permission === "default") { try { await Notification.requestPermission(); } catch {} }
-        if (Notification.permission === "granted" && document.visibilityState === "hidden") {
+        if (Notification.permission === "default") {
+          try {
+            await Notification.requestPermission();
+          } catch {}
+        }
+        if (
+          Notification.permission === "granted" &&
+          document.visibilityState === "hidden"
+        ) {
           new Notification("⏰ アラーム", { body: "時間だよ", silent: false });
         }
       }
     } catch {}
-    try { navigator.vibrate?.([400, 120, 400, 120, 400]); } catch {}
+    try {
+      navigator.vibrate?.([400, 120, 400, 120, 400]);
+    } catch {}
 
     if (!this._origTitle) this._origTitle = document.title;
     this._stopAlerts();
     this._titleBlinker = setInterval(() => {
-      document.title = document.title.startsWith("⏰") ? this._origTitle : "⏰ 時間だよ";
+      document.title = document.title.startsWith("⏰")
+        ? this._origTitle
+        : "⏰ 時間だよ";
     }, 900);
     window.addEventListener("focus", () => this._stopAlerts(), { once: true });
   }
 
   _stopAlerts() {
-    if (this._titleBlinker) { clearInterval(this._titleBlinker); this._titleBlinker = null; }
+    if (this._titleBlinker) {
+      clearInterval(this._titleBlinker);
+      this._titleBlinker = null;
+    }
     if (this._origTitle) document.title = this._origTitle;
   }
 
   // ====== 自動再生対策 ======
   async _unlockAudio() {
     try {
-      this._ctx = this._ctx || new (window.AudioContext || window.webkitAudioContext)();
+      this._ctx =
+        this._ctx || new (window.AudioContext || window.webkitAudioContext)();
       await this._ctx.resume();
     } catch {}
     if (this.hasMusicUrlValue && this.musicUrlValue.trim() !== "") {
@@ -384,11 +485,15 @@ export default class extends Controller {
         a.muted = true;
         a.volume = this._volume ?? a.volume;
         await a.play(); // 許可だけ取る
-        a.pause(); a.currentTime = 0; a.muted = false;
+        a.pause();
+        a.currentTime = 0;
+        a.muted = false;
       } catch {}
     }
   }
-  async _ensureAudioUnlocked() { return Promise.resolve(); }
+  async _ensureAudioUnlocked() {
+    return Promise.resolve();
+  }
 
   // ====== YouTube 埋め込み ======
   async _ensureYouTubeAPI() {
@@ -410,7 +515,9 @@ export default class extends Controller {
     if (!id) return false;
 
     const opts = {
-      height: "0", width: "0", videoId: id,
+      height: "0",
+      width: "0",
+      videoId: id,
       playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1, mute: 1 },
       events: {
         onReady: (e) => {
@@ -420,18 +527,28 @@ export default class extends Controller {
             ifr.setAttribute("playsinline", "1");
             ifr.setAttribute("allowfullscreen", "1");
           }
-          try { e.target.playVideo(); } catch {}
+          try {
+            e.target.playVideo();
+          } catch {}
         },
-        onError: (e) => { this._ytPrepared = false; this._ytError = e?.data; },
+        onError: (e) => {
+          this._ytPrepared = false;
+          this._ytError = e?.data;
+        },
       },
     };
 
     if (!this._ytPlayer) {
-      this._ytPlayer = new YT.Player(this.hasYtPlayerTarget ? this.ytPlayerTarget : "yt-player", opts);
+      this._ytPlayer = new YT.Player(
+        this.hasYtPlayerTarget ? this.ytPlayerTarget : "yt-player",
+        opts
+      );
       const ok = await new Promise((res) => {
         let t = 0;
         const tick = () => {
-          try { if (this._ytPlayer.getPlayerState) return res(true); } catch {}
+          try {
+            if (this._ytPlayer.getPlayerState) return res(true);
+          } catch {}
           if (t++ > 40) return res(false);
           setTimeout(tick, 50);
         };
@@ -439,10 +556,17 @@ export default class extends Controller {
       });
       if (!ok) return false;
     } else {
-      try { this._ytPlayer.loadVideoById(id); } catch { return false; }
+      try {
+        this._ytPlayer.loadVideoById(id);
+      } catch {
+        return false;
+      }
     }
 
-    try { this._ytPlayer.mute(); this._ytPlayer.playVideo(); } catch {}
+    try {
+      this._ytPlayer.mute();
+      this._ytPlayer.playVideo();
+    } catch {}
     this._ytPrepared = true;
     return true;
   }
@@ -452,11 +576,16 @@ export default class extends Controller {
       this._ytPlayer.seekTo(0, true);
       this._ytPlayer.unMute();
       this._ytPlayer.playVideo();
-    } catch { return false; }
+    } catch {
+      return false;
+    }
     const ok = await new Promise((res) => {
       const t0 = performance.now();
       (function tick() {
-        try { if (this._ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) return res(true); } catch {}
+        try {
+          if (this._ytPlayer.getPlayerState() === YT.PlayerState.PLAYING)
+            return res(true);
+        } catch {}
         if (performance.now() - t0 > 2000) return res(false);
         requestAnimationFrame(tick.bind(this));
       }).call(this);
@@ -465,8 +594,12 @@ export default class extends Controller {
   }
 
   _destroyYT() {
-    try { this._ytPlayer?.stopVideo(); } catch {}
-    try { this._ytPlayer?.destroy(); } catch {}
+    try {
+      this._ytPlayer?.stopVideo();
+    } catch {}
+    try {
+      this._ytPlayer?.destroy();
+    } catch {}
     this._ytPlayer = null;
     this._ytPrepared = false;
     this._closeYTPrompt();
@@ -477,13 +610,22 @@ export default class extends Controller {
     if (this._ytPrompt) return;
     const wrap = document.createElement("div");
     Object.assign(wrap.style, {
-      position:"fixed", inset:"0", background:"rgba(0,0,0,.35)",
-      display:"flex", alignItems:"center", justifyContent:"center", zIndex:"9999"
+      position: "fixed",
+      inset: "0",
+      background: "rgba(0,0,0,.35)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: "9999",
     });
     const card = document.createElement("div");
     Object.assign(card.style, {
-      background:"#fff", padding:"14px 18px", borderRadius:"10px",
-      boxShadow:"0 10px 30px rgba(0,0,0,.2)", maxWidth:"92%", textAlign:"center"
+      background: "#fff",
+      padding: "14px 18px",
+      borderRadius: "10px",
+      boxShadow: "0 10px 30px rgba(0,0,0,.2)",
+      maxWidth: "92%",
+      textAlign: "center",
     });
     card.innerHTML = `
       <div style="font-weight:600;margin-bottom:6px;">このタブで再生する</div>
@@ -495,10 +637,20 @@ export default class extends Controller {
     document.body.appendChild(wrap);
     this._ytPrompt = wrap;
 
-    const play = async () => { try { await onPlay?.(); } finally { this._closeYTPrompt(); } };
+    const play = async () => {
+      try {
+        await onPlay?.();
+      } finally {
+        this._closeYTPrompt();
+      }
+    };
     const close = () => this._closeYTPrompt();
-    card.querySelector("#yt-go")?.addEventListener("click", play,   { once:true });
-    card.querySelector("#yt-cancel")?.addEventListener("click", close, { once:true });
+    card
+      .querySelector("#yt-go")
+      ?.addEventListener("click", play, { once: true });
+    card
+      .querySelector("#yt-cancel")
+      ?.addEventListener("click", close, { once: true });
   }
   _closeYTPrompt() {
     this._ytPrompt?.remove();
@@ -507,7 +659,10 @@ export default class extends Controller {
 
   // ====== 小物 ======
   _ringDurationMsForNonYouTube() {
-    const s = this.hasRingSecondsValue && this.ringSecondsValue > 0 ? this.ringSecondsValue : 30;
+    const s =
+      this.hasRingSecondsValue && this.ringSecondsValue > 0
+        ? this.ringSecondsValue
+        : 30;
     return s * 1000;
   }
   _scheduleStopAfter(ms) {
@@ -518,8 +673,16 @@ export default class extends Controller {
   _isYoutubeUrl(u) {
     try {
       const x = new URL(u);
-      return ["www.youtube.com","youtube.com","m.youtube.com","music.youtube.com","youtu.be"].includes(x.hostname);
-    } catch { return false; }
+      return [
+        "www.youtube.com",
+        "youtube.com",
+        "m.youtube.com",
+        "music.youtube.com",
+        "youtu.be",
+      ].includes(x.hostname);
+    } catch {
+      return false;
+    }
   }
   _extractYouTubeId(u) {
     try {
@@ -528,17 +691,26 @@ export default class extends Controller {
       if (x.searchParams.get("v")) return x.searchParams.get("v");
       const m = x.pathname.match(/\/embed\/([^/?#]+)/);
       return m ? m[1] : null;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
   _normalizeToYouTubeWatch(u) {
     try {
       const x = new URL(u);
-      if (x.hostname === "youtu.be") return `https://www.youtube.com/watch?v=${x.pathname.slice(1)}`;
-      if (x.hostname === "music.youtube.com" || x.hostname === "m.youtube.com") {
-        const v = x.searchParams.get("v"); if (v) return `https://www.youtube.com/watch?v=${v}`;
+      if (x.hostname === "youtu.be")
+        return `https://www.youtube.com/watch?v=${x.pathname.slice(1)}`;
+      if (
+        x.hostname === "music.youtube.com" ||
+        x.hostname === "m.youtube.com"
+      ) {
+        const v = x.searchParams.get("v");
+        if (v) return `https://www.youtube.com/watch?v=${v}`;
       }
       return u;
-    } catch { return u; }
+    } catch {
+      return u;
+    }
   }
 
   // デバッグ用（任意で使う）
@@ -558,6 +730,14 @@ export default class extends Controller {
     }
   }
 
-  _bindBeforeUnload() { window.addEventListener("beforeunload", this._beforeUnload, { capture: true }); }
-  _unbindBeforeUnload() { window.removeEventListener("beforeunload", this._beforeUnload, { capture: true }); }
+  _bindBeforeUnload() {
+    window.addEventListener("beforeunload", this._beforeUnload, {
+      capture: true,
+    });
+  }
+  _unbindBeforeUnload() {
+    window.removeEventListener("beforeunload", this._beforeUnload, {
+      capture: true,
+    });
+  }
 }

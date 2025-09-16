@@ -3,32 +3,145 @@
 @tailwind utilities;
 
 @layer base {
-  html { @apply antialiased; }
-  body { @apply text-gray-900 bg-white dark:bg-gray-900 dark:text-gray-100; }
+  html {
+    @apply antialiased;
+  }
+  body {
+    @apply text-gray-900 bg-white dark:bg-gray-900 dark:text-gray-100;
+  }
 }
 
 @layer components {
-  .btn         { @apply inline-flex items-center justify-center rounded border px-4 py-2 hover:bg-gray-50 active:scale-[.99]; }
-  .btn-primary { @apply bg-gray-900 text-white hover:bg-gray-800 border-transparent; }
-  .btn-link    { @apply underline px-2 py-1; }
+  .btn {
+    @apply inline-flex items-center justify-center rounded border px-4 py-2 hover:bg-gray-50 active:scale-[.99];
+  }
+  .btn-primary {
+    @apply bg-gray-900 text-white hover:bg-gray-800 border-transparent;
+  }
+  .btn-link {
+    @apply underline px-2 py-1;
+  }
 
-  .input       { @apply w-full border rounded px-3 py-2; }
-  .number      { @apply w-16 border rounded px-2 py-1; }
+  .input {
+    @apply w-full border rounded px-3 py-2;
+  }
+  .number {
+    @apply w-16 border rounded px-2 py-1;
+  }
 
-  .time-display { @apply my-6 text-center text-6xl font-bold tracking-wide tabular-nums; }
-  .alert        { @apply text-red-600; }
-  .hint         { @apply text-sm text-gray-600; }
+  .time-display {
+    @apply my-6 text-center text-6xl font-bold tracking-wide tabular-nums;
+  }
+  .alert {
+    @apply text-red-600;
+  }
+  .hint {
+    @apply text-sm text-gray-600;
+  }
 
-  .container-nap { @apply mx-auto w-full max-w-[720px] p-4; }
-  .display-nap   { @apply font-extrabold tracking-wide text-center text-[clamp(40px,8vw,96px)] tabular-nums; }
-  .controls-nap  { @apply flex flex-wrap justify-center gap-2; }
-  .btn-nap       { @apply rounded-xl border border-slate-600 px-4 py-2 min-h-[44px] text-slate-100 hover:border-teal-400; }
-  .btn-danger    { @apply border-red-500 hover:border-red-400; }
-  .input-nap     { @apply w-full rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2 text-slate-100; }
+  .container-nap {
+    @apply mx-auto w-full max-w-[720px] p-4;
+  }
+  .display-nap {
+    @apply font-extrabold tracking-wide text-center text-[clamp(40px,8vw,96px)] tabular-nums;
+  }
+  .controls-nap {
+    @apply flex flex-wrap justify-center gap-2;
+  }
+  .btn-nap {
+    @apply rounded-xl border border-slate-600 px-4 py-2 min-h-[44px] text-slate-100 hover:border-teal-400;
+  }
+  .btn-danger {
+    @apply border-red-500 hover:border-red-400;
+  }
+  .input-nap {
+    @apply w-full rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2 text-slate-100;
+  }
 }
 
 @layer utilities {
   .no-spin::-webkit-outer-spin-button,
-  .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .no-spin { -moz-appearance: textfield; }
+  .no-spin::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .no-spin {
+    -moz-appearance: textfield;
+  }
+
+  /* フォームの4ボタン＋送信 */
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#testSound"],
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#stopTest"],
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#openYoutube"],
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#clearHistory"],
+  form[data-controller~="alarm-form"] input[type="submit"] {
+    transition: background-color 0.15s ease;
+  }
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#testSound"]:hover,
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#stopTest"]:hover,
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#openYoutube"]:hover,
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#clearHistory"]:hover,
+  form[data-controller~="alarm-form"] input[type="submit"]:hover {
+    background-color: rgba(
+      0,
+      0,
+      0,
+      0.06
+    ) !important; /* = “白の反対（黒）”を薄く */
+  }
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#testSound"]:active,
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#stopTest"]:active,
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#openYoutube"]:active,
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#clearHistory"]:active,
+  form[data-controller~="alarm-form"] input[type="submit"]:active {
+    background-color: rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* セレクト「YouTubeリンク」も同じノリで */
+  form[data-controller~="alarm-form"] select[data-alarm-form-target="source"] {
+    transition: background-color 0.15s ease;
+  }
+  form[data-controller~="alarm-form"]
+    select[data-alarm-form-target="source"]:hover {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+  }
+
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#testSound"]:hover {
+    background-color: #eff6ff !important; /* blue-50 */
+  }
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#testSound"]:active {
+    background-color: #dbeafe !important; /* blue-100 */
+  }
+
+  /* 停止 → Rose 50/100 */
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#stopTest"]:hover {
+    background-color: #fff1f2 !important; /* rose-50 */
+  }
+  form[data-controller~="alarm-form"]
+    button[data-action*="alarm-form#stopTest"]:active {
+    background-color: #ffe4e6 !important; /* rose-100 */
+  }
+
+  /* アラーム開始（submit）→ Green 50/100 */
+  form[data-controller~="alarm-form"] input[type="submit"]:hover {
+    background-color: #ecfdf5 !important; /* green-50 */
+  }
+  form[data-controller~="alarm-form"] input[type="submit"]:active {
+    background-color: #d1fae5 !important; /* green-100 */
+  }
 }
