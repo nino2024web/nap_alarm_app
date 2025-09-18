@@ -8,7 +8,16 @@ export default class extends Controller {
     musicUrl: String,
     ringSeconds: Number,
   };
-  static targets = ["display", "audio", "startBtn", "pauseBtn", "ytPlayer"];
+  static targets = [
+    "display",
+    "audio",
+    "startBtn",
+    "pauseBtn",
+    "ytPlayer",
+    "ytModal",
+    "ytPlayerMount",
+    "ytHint",
+  ];
 
   connect() {
     // 状態
@@ -24,7 +33,7 @@ export default class extends Controller {
     this._ytPrepared = false;
     this._ytPlayer = null;
     this._ytPrompt = null;
-    this._beepToken = null; // ビープのキャンセル用トークン
+    this._beepToken = null;
 
     // 音量
     const saved = parseFloat(localStorage.getItem("nap_volume") || "1");
@@ -133,12 +142,6 @@ export default class extends Controller {
     this._bindBeforeUnload();
     await this._requestWakeLock();
     this._setRingingUI(false);
-
-    // ここで YouTube をミュート準備
-    const url = (this.musicUrlValue || "").trim();
-    if (this._isYoutubeUrl(url)) {
-      await this._prepareYouTube(url);
-    }
   }
 
   async pause() {
@@ -184,6 +187,8 @@ export default class extends Controller {
       clearTimeout(this._ringStopTimeout);
       this._ringStopTimeout = null;
     }
+    // 可視プレイヤー＆準備プレイヤーを停止
+    this.closeYt();
     if (this._ytPlayer) {
       try {
         this._ytPlayer.stopVideo();
@@ -197,7 +202,7 @@ export default class extends Controller {
     this._unbindBeforeUnload();
     this._releaseWakeLock();
     this._setRingingUI(false);
-    this._closeYTPrompt();
+    this._closeYT();
   }
 
   snooze(min = 5) {
@@ -254,33 +259,15 @@ export default class extends Controller {
         started = true;
         this._scheduleStopAfter(this._ringDurationMsForNonYouTube());
       } else if (isYT) {
-        const prepared = this._ytPrepared || (await this._prepareYouTube(url));
-        let started = false;
-        if (prepared) started = await this._unmutePreparedYouTube();
-
-        if (!started) {
-          // ←ここが肝。モーダルを出して“このタブで再生”の明示クリックをもらう
-          this._showYTPrompt(async () => {
-            const ok = await this._unmutePreparedYouTube();
-            if (!ok) {
-              // 埋め込み不可など → 同タブでYouTubeに飛ばして確実に鳴らす
-              window.location.assign(this._normalizeToYouTubeWatch(url));
-              return;
-            }
-            // 再生できたらフォールバック音を止めて、最大15分で安全停止
-            this._cancelBeepLoop();
-            this._stopSound();
-            this._scheduleStopAfter(15 * 60 * 1000);
-          });
-
-          // モーダルの操作待ちの間、**デフォルト音で鳴らし続ける**（並行）
+        const ok = await this._playYouTubeVisible(url); // ←モーダルで再生
+        if (!ok) {
+          // 埋め込み不可 → フォールバック音（30秒）に退避
           this._startBeepLoop(this._ringDurationMsForNonYouTube());
           this._scheduleStopAfter(this._ringDurationMsForNonYouTube());
-          started = true; // UIは鳴動中にする
         } else {
-          // そのままYouTube再生できたケース
           this._scheduleStopAfter(15 * 60 * 1000);
         }
+        started = true;
       } else {
         // asset/mp3 は 30秒だけループ
         this.audioTarget.loop = true;
@@ -503,7 +490,7 @@ export default class extends Controller {
       s.onerror = () => rej(new Error("yt api load fail"));
       document.head.appendChild(s);
       window.onYouTubeIframeAPIReady = () => res();
-      setTimeout(() => res(), 3000); // 念のためタイムアウト
+      setTimeout(() => res(), 3000);
     });
   }
 
@@ -685,14 +672,59 @@ export default class extends Controller {
   _extractYouTubeId(u) {
     try {
       const x = new URL(u);
-      if (x.hostname === "youtu.be") return x.pathname.slice(1);
-      if (x.searchParams.get("v")) return x.searchParams.get("v");
-      const m = x.pathname.match(/\/embed\/([^/?#]+)/);
-      return m ? m[1] : null;
+      const h = x.hostname.toLowerCase();
+      if (h === "youtu.be") return x.pathname.slice(1);
+      if (x.pathname.startsWith("/shorts/")) return x.pathname.split("/")[2];
+      if (x.pathname.startsWith("/embed/")) return x.pathname.split("/")[2];
+      return x.searchParams.get("v");
     } catch {
       return null;
     }
   }
+
+  openYt() {
+    this.ytModalTarget.classList.remove("hidden");
+    this.ytModalTarget.classList.add("flex");
+  }
+
+  closeYt() {
+    try {
+      this._yt?.stopVideo();
+    } catch {}
+    try {
+      this._yt?.destroy();
+    } catch {}
+    this._yt = null;
+    this.ytModalTarget.classList.add("hidden");
+    this.ytModalTarget.classList.remove("flex");
+  }
+
+  async _playYouTubeVisible(rawUrl) {
+    await this._ensureYouTubeAPI();
+    const id = this._extractYouTubeId(rawUrl);
+    if (!id) return false;
+
+    // 既存破棄→開く
+    this.closeYt();
+    this.openYt();
+
+    this._yt = new YT.Player(this.ytPlayerMountTarget, {
+      width: 360,
+      height: 203,
+      videoId: id,
+      playerVars: { autoplay: 1, controls: 1, rel: 0, playsinline: 1 },
+      events: {
+        onReady: (e) => {
+          try {
+            e.target.playVideo();
+          } catch {}
+        },
+        onError: () => this.closeYt(),
+      },
+    });
+    return true;
+  }
+
   _normalizeToYouTubeWatch(u) {
     try {
       const x = new URL(u);

@@ -21,6 +21,9 @@ export default class extends Controller {
     "seconds",
     "testHint",
     "ytTest",
+    "ytModal",
+    "ytPlayerMount",
+    "ytHint",
   ];
 
   connect() {
@@ -653,7 +656,8 @@ export default class extends Controller {
   _extractYouTubeId(u) {
     try {
       const x = new URL(u);
-      if (x.hostname.toLowerCase() === "youtu.be") return x.pathname.slice(1);
+      const h = x.hostname.toLowerCase();
+      if (h === "youtu.be") return x.pathname.slice(1);
       if (x.pathname.startsWith("/shorts/")) return x.pathname.split("/")[2];
       if (x.pathname.startsWith("/embed/")) return x.pathname.split("/")[2];
       return x.searchParams.get("v");
@@ -669,7 +673,7 @@ export default class extends Controller {
 
     this._stopYouTubeTest?.();
 
-    let mount = this.hasYtTestTarget ? this.ytTestTarget : null;
+      let mount = this.hasYtTestTarget ? this.ytTestTarget : null;
     if (!mount) {
       mount = document.createElement("div");
       mount.className = "na-visually-hidden";

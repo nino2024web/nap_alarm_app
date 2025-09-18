@@ -8,7 +8,7 @@ Rails.application.configure do
     policy.object_src  :none
     policy.media_src   :self, :https
     policy.connect_src :self, :https, "https://www.youtube.com", "https://www.google.com"
-    policy.directives['style-src-attr'] = ["'unsafe-inline'"]
+    policy.directives["style-src-attr"] = [ "'unsafe-inline'" ]
     policy.style_src_attr :unsafe_inline
 
     # 画像（YouTubeサムネ等）
@@ -18,12 +18,8 @@ Rails.application.configure do
     policy.script_src  :self, :https, "https://www.youtube.com", "https://s.ytimg.com"
     policy.frame_src   :self, :https, "https://www.youtube.com", "https://www.youtube-nocookie.com"
 
-    # スタイル：開発だけはインライン許可（あなたの <style id="bg-hotfix"> 用）
-    if Rails.env.development?
-      policy.style_src :self, :https, :unsafe_inline
-    else
+
       policy.style_src :self, :https
-    end
   end
 
   # （必要なら）nonce を有効化 — importmap/inline を安全に通す
