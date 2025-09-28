@@ -1,5 +1,7 @@
 Rails.application.routes.draw do
-  root "alarms#new"
-  resource :alarm, only: [ :new, :create, :show ]
-  get "/oembed", to: "oembeds#show"
+  scope "(:locale)", locale: /en|ja/ do
+    root "alarms#new"
+    resource :alarm, only: [ :new, :create, :show ]
+    get "/oembed", to: "oembeds#show"
+  end
 end

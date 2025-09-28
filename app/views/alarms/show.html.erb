@@ -3,67 +3,87 @@
      data-alarm-ends-at-value="<%= params[:ends_at_ms] %>"
      data-alarm-duration-value="<%= params[:duration_ms] %>"
      data-alarm-music-url-value="<%= params[:music_url].to_s %>"
-     data-alarm-ring-seconds-value="30"> <!-- デフォルトは30秒 -->
-  <h1 class="text-2xl font-semibold">カウントダウン</h1>
+     data-alarm-ring-seconds-value="30"
+     data-alarm-label-start-value="<%= t('alarms.show.start_resume', default: 'Start/Resume') %>"
+     data-alarm-label-pause-value="<%= t('alarms.show.pause', default: 'Pause') %>"
+     data-alarm-label-snooze-value="<%= t('alarms.show.snooze', default: 'Snooze (+5m)') %>"
+     data-alarm-label-stop-value="<%= t('alarms.show.stop', default: 'Stop') %>"
+     data-alarm-beforeunload-value="<%= t('alarms.show.beforeunload', default: 'Alarm is running. Leave this page?') %>"
+     data-alarm-notif-title-value="<%= t('alarms.show.notif_title', default: '⏰ Alarm') %>"
+     data-alarm-notif-body-value="<%= t('alarms.show.notif_body', default: "Time's up") %>"
+     data-alarm-press-play-value="<%= t('alarms.show.press_play', default: 'Press Play') %>"
+     data-alarm-inline-title-value="<%= t('alarms.show.inline_title', default: 'Play in this tab') %>"
+     data-alarm-inline-hint-value="<%= t('alarms.show.inline_hint', default: 'Autoplay was blocked. Tap the button.') %>"
+     data-alarm-inline-play-value="<%= t('alarms.show.inline_play', default: 'Play') %>"
+     data-alarm-inline-close-value="<%= t('alarms.show.inline_close', default: 'Close') %>">
+
+  <h1 class="text-2xl font-semibold"><%= t('alarms.show.countdown') %></h1>
+
   <div class="my-6 text-center text-6xl font-bold tracking-wide"
        data-alarm-target="display">--:--:--</div>
+
   <div class="flex flex-wrap gap-2 justify-center">
-    <!-- 開始/再開（青系） -->
+    <!-- 開始/再開（鳴動時はスヌーズに差し替えられる） -->
     <button type="button"
             data-alarm-target="startBtn"
             data-action="alarm#start"
             class="px-4 py-2 border rounded transition-colors
                    hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700
                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-      開始/再開
+      <%= t('alarms.show.start_resume') %>
     </button>
-    <!-- 一時停止（琥珀系） -->
+    <!-- 一時停止（鳴動時は停止に差し替え） -->
     <button type="button"
             data-alarm-target="pauseBtn"
             data-action="alarm#pause"
             class="px-4 py-2 border rounded transition-colors
                    hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700
                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
-      一時停止
+      <%= t('alarms.show.pause') %>
     </button>
-    <!-- リセット（赤系） -->
+    <!-- リセット -->
     <button type="button"
             data-action="alarm#reset"
             class="px-4 py-2 border rounded transition-colors
                    hover:bg-rose-50 hover:border-rose-400 hover:text-rose-700
                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400">
-      リセット
+      <%= t('alarms.show.reset') %>
     </button>
-    <%= link_to "別の時間でやり直す",
+
+    <%= link_to t('alarms.show.redo'),
           root_path,
           class: "px-4 py-2 underline underline-offset-2 decoration-gray-400
                   transition-colors hover:text-blue-700 hover:decoration-blue-600
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded" %>
   </div>
-  <!-- YouTube用のプレイヤー置き場（非表示形式） -->
+
+  <!-- 準備用（不可視） -->
   <div id="yt-player"
-     class="na-visually-hidden"
-     aria-hidden="true"
-     data-alarm-target="ytPlayer"></div>
+       class="na-visually-hidden"
+       aria-hidden="true"
+       data-alarm-target="ytPlayer"></div>
+
   <audio data-alarm-target="audio"
          playsinline
          preload="auto"
          crossorigin="anonymous"></audio>
+
+  <!-- 可視モーダル：YouTubeプレビュー -->
   <div data-alarm-target="ytModal"
-     class="fixed inset-0 z-40 hidden items-center justify-center bg-black/40">
+       class="fixed inset-0 z-40 hidden items-center justify-center bg-black/40">
     <div class="rounded-lg bg-white p-3 shadow-xl w-[360px]">
-      <div class="text-sm text-gray-600 mb-2">YouTube プレビュー</div>
+      <div class="text-sm text-gray-600 mb-2"><%= t('alarms.show.preview_title') %></div>
       <div data-alarm-target="ytPlayerMount"></div>
       <div class="mt-3 flex justify-between items-center">
-        <span class="text-xs text-gray-500" data-alarm-target="ytHint"
-            >再生がブロックされたらボタンを押してね</span>
+        <span class="text-xs text-gray-500" data-alarm-target="ytHint"><%= t('alarms.show.preview_hint') %></span>
         <button type="button"
-              class="inline-flex items-center justify-center rounded border px-3 py-1 hover:bg-slate-50"
-              data-action="alarm#closeYt">閉じる</button>
+                class="inline-flex items-center justify-center rounded border px-3 py-1 hover:bg-slate-50"
+                data-action="alarm#closeYt"><%= t('alarms.show.close') %></button>
       </div>
     </div>
   </div>
+
   <p class="mt-4 text-sm text-gray-600">
-    端末スリープ中は鳴らないことがある。背景タブだと精度が落ちる場合もあるよ（終端時刻で補正）。
+    <%= t('alarms.show.sleep_warning') %>
   </p>
 </div>

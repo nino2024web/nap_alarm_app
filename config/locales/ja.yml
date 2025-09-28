@@ -1,0 +1,65 @@
+ja:
+  nav:
+    english: "English"
+    japanese: "日本語"
+  app:
+    name: "PowerNap_"
+    tagline: "20分で、頭を軽く。"
+  common:
+    default: "デフォルト"
+    clear: "クリア"
+    url_not_entered: "（URL未入力：ここにURLを貼ってください）"
+  alarms:
+    alerts:
+      zero_duration: "0分は設定できません。1秒以上を指定してください。"
+      youtube_empty: "YouTube の URL を貼ってください"
+      youtube_invalid: "無効のURLです。『YouTubeを開く』押して確認してください。"
+    hints:
+      test_asset: "デフォルト音源をその場で再生します"
+      test_youtube: "このタブで数秒だけ試聴します（リンクは開きません）"
+    new:
+      subtitle: "仮眠"
+      legend_time: "時間（どれにする？）"
+      presets:
+        min15: "15分"
+        min20: "20分"
+        min30: "30分"
+        min45: "45分"
+        min60: "60分"
+        custom: "カスタム"
+        hour: "時間"
+        minute: "分"
+        second: "秒"
+      legend_sound: "アラーム音"
+      source:
+        youtube: "YouTubeリンク（下記枠にURLを貼ってください）"
+      youtube_placeholder: "https://www.youtube.com/watch?v=..."
+      youtube_hint_title: "YouTubeのURLを貼ると曲名を表示します。"
+      youtube_hint_fallback: "※ 未入力・無効な場合はデフォルト音（Bell）で鳴ります。"
+      youtube_title_heading: "YouTube題名"
+      youtube_url_format_hint: "URLは「https://www.youtube.com/watch?v=...」形式（短縮 youtu.be もOK）。"
+      open_youtube: "YouTubeを開く"
+      volume: "音量"
+      submit: "アラーム開始へ"
+      history_title: "直近10件"
+      history_clear: "履歴クリア"
+    show:
+      countdown: "カウントダウン"
+      start_resume: "開始/再開"
+      pause: "一時停止"
+      reset: "リセット"
+      redo: "別の時間でやり直す"
+      preview_title: "YouTube プレビュー"
+      preview_hint: "再生がブロックされたらボタンを押してね"
+      close: "閉じる"
+      sleep_warning: "端末スリープ中は鳴らないことがある。背景タブだと精度が落ちる場合もあるよ（終端時刻で補正）。"
+    form_texts:
+      not_youtube: "（YouTubeリンクではありません）"
+      fetching: "取得中…"
+      unknown_title: "（題名不明）"
+      fetch_failed: "取得できませんでした"
+      history_empty: "履歴はありません"
+      use: "使う"
+      min: "分"
+      sec: "秒"
+      default_asset: "デフォルト音源"

@@ -1,31 +1,65 @@
-# Files in the config/locales directory are used for internationalization and
-# are automatically loaded by Rails. If you want to use locales other than
-# English, add the necessary files in this directory.
-#
-# To use the locales, use `I18n.t`:
-#
-#     I18n.t "hello"
-#
-# In views, this is aliased to just `t`:
-#
-#     <%= t("hello") %>
-#
-# To use a different locale, set it with `I18n.locale`:
-#
-#     I18n.locale = :es
-#
-# This would use the information in config/locales/es.yml.
-#
-# To learn more about the API, please read the Rails Internationalization guide
-# at https://guides.rubyonrails.org/i18n.html.
-#
-# Be aware that YAML interprets the following case-insensitive strings as
-# booleans: `true`, `false`, `on`, `off`, `yes`, `no`. Therefore, these strings
-# must be quoted to be interpreted as strings. For example:
-#
-#     en:
-#       "yes": yup
-#       enabled: "ON"
-
 en:
-  hello: "Hello world"
+  nav:
+    english: "English"
+    japanese: "日本語"
+  app:
+    name: "PowerNap_"
+    tagline: "Clear your head in 20 minutes."
+  common:
+    default: "default"
+    clear: "Clear"
+    url_not_entered: "(No URL yet: paste a link here)"
+  alarms:
+    alerts:
+      zero_duration: "Please set at least 1 second."
+      youtube_empty: "Paste a YouTube URL."
+      youtube_invalid: "Invalid URL. Use “Open YouTube”."
+    hints:
+      test_asset: "Plays the default sound here"
+      test_youtube: "Preview a few seconds in this tab"
+    new:
+      subtitle: "Naps"
+      legend_time: "Duration (pick one)"
+      presets:
+        min15: "15 min"
+        min20: "20 min"
+        min30: "30 min"
+        min45: "45 min"
+        min60: "60 min"
+        custom: "Custom"
+        hour: "h"
+        minute: "m"
+        second: "s"
+      legend_sound: "Alarm sound"
+      source:
+        youtube: "YouTube link (paste URL below)"
+      youtube_placeholder: "https://www.youtube.com/watch?v=..."
+      youtube_hint_title: "Paste a YouTube URL to show the title."
+      youtube_hint_fallback: "* If invalid, the default Bell will be used."
+      youtube_title_heading: "YouTube Title"
+      youtube_url_format_hint: "URL should be https://www.youtube.com/watch?v=... (short youtu.be OK)."
+      open_youtube: "Open YouTube"
+      volume: "Volume"
+      submit: "Start alarm"
+      history_title: "Recent 10"
+      history_clear: "Clear history"
+    show:
+      countdown: "Countdown"
+      start_resume: "Start/Resume"
+      pause: "Pause"
+      reset: "Reset"
+      redo: "Try another duration"
+      preview_title: "YouTube Preview"
+      preview_hint: "If blocked, press the button"
+      close: "Close"
+      sleep_warning: "May not ring while device sleeps; timing may drift in background tabs."
+    form_texts:
+      not_youtube: "(This is not a YouTube link)"
+      fetching: "Fetching…"
+      unknown_title: "(Unknown title)"
+      fetch_failed: "Could not fetch the title"
+      history_empty: "No history yet"
+      use: "Use"
+      min: "min"
+      sec: "sec"
+      default_asset: "Default sound"

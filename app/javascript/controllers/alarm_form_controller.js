@@ -1,9 +1,8 @@
-// app/javascript/controllers/alarm_form_controller.js
 import { Controller } from "@hotwired/stimulus";
 
 const HISTORY_KEY = "nap_alarm_history";
 const VOL_KEY = "nap_volume";
-const MIN_MS = 1000; // 1秒
+const MIN_MS = 1000; // 最低1秒
 
 export default class extends Controller {
   static targets = [
@@ -26,6 +25,24 @@ export default class extends Controller {
     "ytHint",
   ];
 
+  static values = {
+    zeroAlert: String,
+    testAssetHint: String,
+    testYoutubeHint: String,
+    urlEmpty: String,
+    urlInvalid: String,
+    noUrl: String,
+    notYoutube: String,
+    fetching: String,
+    unknownTitle: String,
+    fetchFailed: String,
+    historyEmpty: String,
+    useLabel: String,
+    minLabel: String,
+    secLabel: String,
+    defaultAsset: String,
+  };
+
   connect() {
     // 再生用の隠しAudio
     this._audio = new Audio();
@@ -36,8 +53,7 @@ export default class extends Controller {
     const saved = parseFloat(localStorage.getItem(VOL_KEY) || "1");
     const v = Number.isFinite(saved) ? Math.min(Math.max(saved, 0), 1) : 1;
     if (this.hasVolumeTarget) this.volumeTarget.value = String(v);
-    if (this.hasVolLabelTarget)
-      this.volLabelTarget.textContent = `${Math.round(v * 100)}%`;
+    if (this.hasVolLabelTarget) this.volLabelTarget.textContent = `${Math.round(v * 100)}%`;
     this._audio.volume = v;
 
     // 初期UI
@@ -47,15 +63,14 @@ export default class extends Controller {
     this._renderHistory();
     this._updateClearBtn();
 
-    // フォーム送信でのみ履歴保存（0分はalertで止める）
-    this.formEl =
-      this.element.closest("form") || this.element.querySelector("form");
+    // フォーム送信でのみ履歴保存（0秒はalertで止める）
+    this.formEl = this.element.closest("form") || this.element.querySelector("form");
     this._onSubmit = (e) => {
       this._syncMusicUrlForSubmit();
       const ms = this._currentDurationMs();
       if (ms < MIN_MS) {
         e.preventDefault();
-        alert("0分は設定できません。1秒以上を指定してください。");
+        alert(this.zeroAlertValue || "Please set at least 1 second.");
         return;
       }
       this._saveHistoryOnSubmit(ms);
@@ -73,13 +88,10 @@ export default class extends Controller {
   }
 
   disconnect() {
-    if (this.formEl && this._onSubmit)
-      this.formEl.removeEventListener("submit", this._onSubmit);
+    if (this.formEl && this._onSubmit) this.formEl.removeEventListener("submit", this._onSubmit);
     this._stop();
     if (this._ctx) {
-      try {
-        this._ctx.close();
-      } catch {}
+      try { this._ctx.close(); } catch {}
       this._ctx = null;
     }
     this._stopYouTubeTest?.();
@@ -101,9 +113,7 @@ export default class extends Controller {
 
   // ===== 時間 =====
   presetChanged() {
-    const selected = new FormData(
-      this.element.closest("form") || this.element
-    ).get("preset");
+    const selected = new FormData(this.element.closest("form") || this.element).get("preset");
     const on = selected === "custom";
     const set = (el) => {
       if (!el) return;
@@ -127,10 +137,7 @@ export default class extends Controller {
         this.musicUrlTarget.placeholder = "https://www.youtube.com/watch?v=...";
       if (this.hasYtMetaTarget) {
         this.ytMetaTarget.hidden = false;
-        this._debouncedFetchTitle ??= this._debounce(
-          () => this._fetchYoutubeTitle(),
-          300
-        );
+        this._debouncedFetchTitle ??= this._debounce(() => this._fetchYoutubeTitle(), 300);
         this._debouncedFetchTitle();
       }
     } else {
@@ -150,7 +157,8 @@ export default class extends Controller {
     if (!this.hasMusicUrlTarget) return;
     this.musicUrlTarget.value = "";
     this._stopYouTubeTest?.();
-    if (this.hasYtTitleTarget) this.ytTitleTarget.textContent = "（URL未入力）";
+    if (this.hasYtTitleTarget)
+      this.ytTitleTarget.textContent = this.noUrlValue || "(No URL yet)";
     this._updateClearBtn();
     this._updateTestHint();
     this.musicUrlTarget.focus();
@@ -174,10 +182,9 @@ export default class extends Controller {
     if (!this.hasTestHintTarget) return;
     const { type } = this._resolveSource();
     if (type === "asset") {
-      this.testHintTarget.textContent = "デフォルト音源をその場で再生します";
+      this.testHintTarget.textContent = this.testAssetHintValue || "Plays the default sound here";
     } else if (type === "youtube") {
-      this.testHintTarget.textContent =
-        "このタブで数秒だけ試聴します（リンクは開きません）";
+      this.testHintTarget.textContent = this.testYoutubeHintValue || "Preview a few seconds in this tab";
     } else {
       this.testHintTarget.textContent = "";
     }
@@ -189,25 +196,23 @@ export default class extends Controller {
 
     if (type === "asset") {
       const ok = await this._playWithHealthcheck(url);
-      if (!ok) this._beepOnce();
+      if (!ok) this._beepOnce?.();
       return;
     }
 
     if (type === "youtube") {
       const raw = (this.musicUrlTarget?.value || "").trim();
       if (!raw) {
-        alert("YouTube の URL を貼ってください");
+        alert(this.urlEmptyValue || "Paste a YouTube URL.");
         this.musicUrlTarget?.focus();
         return;
       }
       const started = await this._playYoutubeInline(raw, { previewMs: 8000 });
-      if (!started)
-        alert("無効のURLです。『YouTubeを開く』押して確認してください。");
+      if (!started) alert(this.urlInvalidValue || "Invalid URL. Use “Open YouTube”.");
       return;
     }
   }
 
-  //  別タブで YouTube を開く
   openYoutube() {
     const raw = (this.musicUrlTarget?.value || "").trim();
     const HOMEPAGE = "https://www.youtube.com/";
@@ -227,11 +232,8 @@ export default class extends Controller {
   // ===== 音量 =====
   volumeChanged() {
     const v = this._currentVolume();
-    try {
-      localStorage.setItem(VOL_KEY, String(v));
-    } catch {}
-    if (this.hasVolLabelTarget)
-      this.volLabelTarget.textContent = `${Math.round(v * 100)}%`;
+    try { localStorage.setItem(VOL_KEY, String(v)); } catch {}
+    if (this.hasVolLabelTarget) this.volLabelTarget.textContent = `${Math.round(v * 100)}%`;
     this._audio.volume = v;
   }
 
@@ -240,36 +242,35 @@ export default class extends Controller {
     if (!this.hasMusicUrlTarget || !this.hasYtTitleTarget) return;
     const raw = (this.musicUrlTarget.value || "").trim();
     if (!raw) {
-      this.ytTitleTarget.textContent = "（URL未入力）";
+      this.ytTitleTarget.textContent = this.noUrlValue || "(No URL yet)";
       return;
     }
     if (!this._isYoutubeUrl(raw)) {
-      this.ytTitleTarget.textContent = "（YouTubeリンクではありません）";
+      this.ytTitleTarget.textContent = this.notYoutubeValue || "(This is not a YouTube link)";
       return;
     }
 
     const cacheKey = "na_oembed_cache";
     let cache = {};
-    try {
-      cache = JSON.parse(localStorage.getItem(cacheKey) || "{}");
-    } catch {}
+    try { cache = JSON.parse(localStorage.getItem(cacheKey) || "{}"); } catch {}
+
     if (cache[raw]?.title) {
       this.ytTitleTarget.textContent = cache[raw].title;
       return;
     }
 
-    this.ytTitleTarget.textContent = "取得中…";
+    this.ytTitleTarget.textContent = this.fetchingValue || "Fetching…";
     try {
       const norm = this._sanitizeYouTube(raw);
       const res = await fetch(`/oembed?url=${encodeURIComponent(norm)}`);
-      if (!res.ok) throw new Error("oEmbed失敗");
+      if (!res.ok) throw new Error("oEmbed failed");
       const data = await res.json();
-      const title = data.title || "（題名不明）";
+      const title = data.title || this.unknownTitleValue || "(Unknown title)";
       this.ytTitleTarget.textContent = title;
       cache[raw] = { title, at: Date.now(), thumbnail_url: data.thumbnail_url };
       localStorage.setItem(cacheKey, JSON.stringify(cache));
     } catch {
-      this.ytTitleTarget.textContent = "取得できませんでした";
+      this.ytTitleTarget.textContent = this.fetchFailedValue || "Could not fetch the title";
     }
   }
 
@@ -282,7 +283,7 @@ export default class extends Controller {
   _saveHistoryOnSubmit(presetMs) {
     const { type, url } = this._resolveSource();
     const ms = Number.isFinite(presetMs) ? presetMs : this._currentDurationMs();
-    if (ms < MIN_MS) return; // 最低1分
+    if (ms < MIN_MS) return; // 最低1秒
     const raw = (this.musicUrlTarget?.value || "").trim();
     const label = this._currentLabelForHistory(type, url, raw);
 
@@ -306,20 +307,17 @@ export default class extends Controller {
     }
 
     const out = [item, ...list].slice(0, 10);
-    try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(out));
-    } catch {}
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(out)); } catch {}
     this._renderHistory();
   }
 
   _currentLabelForHistory(type, url, raw) {
-    if (type === "asset") return this._currentSourceText() || "デフォルト音源";
+    if (type === "asset") return this._currentSourceText() || this.defaultAssetValue || "Default";
     if (type === "youtube") {
       const cacheKey = "na_oembed_cache";
       try {
         const cache = JSON.parse(localStorage.getItem(cacheKey) || "{}");
-        const hit =
-          cache[raw]?.title || cache[this._sanitizeYouTube(raw)]?.title;
+        const hit = cache[raw]?.title || cache[this._sanitizeYouTube(raw)]?.title;
         if (hit) return hit;
       } catch {}
       return "YouTube";
@@ -335,32 +333,25 @@ export default class extends Controller {
 
   _renderHistory() {
     if (!this.hasHistoryListTarget) return;
-    const list = this._loadHistory().filter(
-      (it) => (Number(it.duration_ms) || 0) >= MIN_MS
-    );
+    const list = this._loadHistory().filter((it) => (Number(it.duration_ms) || 0) >= MIN_MS);
     this.historyListTarget.innerHTML = "";
     if (!list.length) {
-      this.historyListTarget.insertAdjacentHTML(
-        "beforeend",
-        `<li class="text-sm text-gray-600">履歴はありません</li>`
-      );
+      const empty = this.historyEmptyValue || "No history yet";
+      this.historyListTarget.insertAdjacentHTML("beforeend", `<li class="text-sm text-gray-600">${empty}</li>`);
       return;
     }
     for (const it of list) {
       const mins = Math.floor(it.duration_ms / 60000);
       const secs = Math.floor((it.duration_ms % 60000) / 1000);
-      const timeLabel = `${mins}分${secs ? secs + "秒" : ""}`;
+      const timeLabel =
+        `${mins}${this.minLabelValue || "min"}` + (secs ? `${secs}${this.secLabelValue || "sec"}` : "");
       const main =
         it.label ||
-        (this._isYoutubeUrl(it.music_url)
-          ? "YouTube"
-          : this._guessLabel(it.music_url));
+        (this._isYoutubeUrl(it.music_url) ? "YouTube" : this._guessLabel(it.music_url));
       const sub =
-        it.kind === "youtube"
-          ? "YouTube"
-          : it.kind === "asset"
-          ? "デフォルト音源"
-          : "";
+        it.kind === "youtube" ? "YouTube" : it.kind === "asset" ? (this.defaultAssetValue || "Default") : "";
+
+      const useLabel = this.useLabelValue || "Use";
 
       const li = document.createElement("li");
       li.className = "flex items-center gap-2";
@@ -368,31 +359,23 @@ export default class extends Controller {
         <button type="button"
           class="inline-flex items-center justify-center rounded border px-3 py-1
                  transition-colors hover:bg-slate-50 hover:border-slate-400 hover:text-slate-700">
-          使う
+          ${useLabel}
         </button>
         <span class="text-sm">
           <span class="font-medium">${main}</span>
-          <span class="text-gray-500">（${timeLabel}${
-        sub ? " / " + sub : ""
-      }）</span>
+          <span class="text-gray-500">（${timeLabel}${sub ? " / " + sub : ""}）</span>
         </span>
       `;
-      li.querySelector("button").addEventListener("click", () =>
-        this._apply(it)
-      );
+      li.querySelector("button").addEventListener("click", () => this._apply(it));
       this.historyListTarget.appendChild(li);
     }
   }
 
   _sweepHistory() {
     const list = this._loadHistory();
-    const cleaned = list
-      .filter((it) => (Number(it.duration_ms) || 0) >= MIN_MS)
-      .slice(0, 10);
+    const cleaned = list.filter((it) => (Number(it.duration_ms) || 0) >= MIN_MS).slice(0, 10);
     if (cleaned.length !== list.length) {
-      try {
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(cleaned));
-      } catch {}
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(cleaned)); } catch {}
     }
   }
 
@@ -402,9 +385,7 @@ export default class extends Controller {
     const match = presets.find((m) => m === totalMin);
 
     if (match) {
-      const r = document.querySelector(
-        `input[name="preset"][value="${match}"]`
-      );
+      const r = document.querySelector(`input[name="preset"][value="${match}"]`);
       if (r) r.checked = true;
       const ch = document.querySelector('input[name="custom_hours"]');
       const cm = document.querySelector('input[name="custom_minutes"]');
@@ -436,9 +417,7 @@ export default class extends Controller {
     if (this.hasSourceTarget) {
       if (kind === "asset") {
         const opts = Array.from(this.sourceTarget.options);
-        const hit = opts.find(
-          (o) => o.value.startsWith("asset:") && o.value.slice(6) === url
-        );
+        const hit = opts.find((o) => o.value.startsWith("asset:") && o.value.slice(6) === url);
         if (hit) this.sourceTarget.value = hit.value;
       } else {
         this.sourceTarget.value = kind; // "youtube"
@@ -448,25 +427,16 @@ export default class extends Controller {
   }
 
   _loadHistory() {
-    try {
-      return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-    } catch {
-      return [];
-    }
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
   }
 
   // ===== ラベル比較ヘルパー =====
   _isGenericLabel(label, kind) {
     const s = (label || "").trim();
     if (!s) return true;
-    const generic = new Set([
-      "YouTube",
-      "デフォルト音源",
-      "External",
-      "Default",
-    ]);
+    const generic = new Set(["YouTube", "デフォルト音源", "External", "Default"]);
     if (generic.has(s)) return true;
-    if (kind === "youtube" && s.length <= 3) return true; // ドメインだけ等
+    if (kind === "youtube" && s.length <= 3) return true;
     return false;
   }
 
@@ -475,7 +445,7 @@ export default class extends Controller {
     const bGen = this._isGenericLabel(b, kind);
     if (aGen && !bGen) return b;
     if (!aGen && bGen) return a;
-    return (b || "").length > (a || "").length ? b : a; // 同士なら長い方
+    return (b || "").length > (a || "").length ? b : a;
   }
 
   // ===== ボリューム =====
@@ -509,10 +479,7 @@ export default class extends Controller {
       this._stop();
       this._audio.crossOrigin = "anonymous";
       this._audio.src = url;
-      const playPromise = this._audio
-        .play()
-        .then(() => true)
-        .catch(() => false);
+      const playPromise = this._audio.play().then(() => true).catch(() => false);
       const ok = await Promise.race([
         playPromise,
         new Promise((res) => setTimeout(() => res("timeout"), timeoutMs)),
@@ -540,21 +507,10 @@ export default class extends Controller {
     const checked = form.querySelector('input[name="preset"]:checked')?.value;
     if (checked && checked !== "custom") return parseInt(checked, 10) * 60000;
 
-    const h = parseInt(
-      form.querySelector('input[name="custom_hours"]')?.value || "0",
-      10
-    );
-    const m = parseInt(
-      form.querySelector('input[name="custom_minutes"]')?.value || "0",
-      10
-    );
-    const s = parseInt(
-      form.querySelector('input[name="custom_seconds"]')?.value || "0",
-      10
-    );
-    const hh = isNaN(h) ? 0 : h,
-      mm = isNaN(m) ? 0 : m,
-      ss = isNaN(s) ? 0 : s;
+    const h = parseInt(form.querySelector('input[name="custom_hours"]')?.value || "0", 10);
+    const m = parseInt(form.querySelector('input[name="custom_minutes"]')?.value || "0", 10);
+    const s = parseInt(form.querySelector('input[name="custom_seconds"]')?.value || "0", 10);
+    const hh = isNaN(h) ? 0 : h, mm = isNaN(m) ? 0 : m, ss = isNaN(s) ? 0 : s;
     let ms = (hh * 3600 + mm * 60 + ss) * 1000;
     const max = 24 * 60 * 60000;
     if (ms < 0) ms = 0;
@@ -579,9 +535,7 @@ export default class extends Controller {
       };
     if (kind === "youtube") {
       const url = (this.musicUrlTarget?.value || "").trim();
-      const label = this.hasYtTitleTarget
-        ? this.ytTitleTarget.textContent || "YouTube"
-        : "YouTube";
+      const label = this.hasYtTitleTarget ? this.ytTitleTarget.textContent || "YouTube" : "YouTube";
       return { type: "youtube", url, label };
     }
     return { type: "asset", url: val, label: "Default" };
@@ -600,9 +554,7 @@ export default class extends Controller {
   _isYoutubeUrl(u) {
     try {
       const h = new URL(u).hostname.toLowerCase();
-      return (
-        h === "youtu.be" || h === "youtube.com" || h.endsWith(".youtube.com")
-      );
+      return h === "youtu.be" || h === "youtube.com" || h.endsWith(".youtube.com");
     } catch {
       return false;
     }
@@ -622,10 +574,9 @@ export default class extends Controller {
       } else {
         id = x.searchParams.get("v");
       }
-      if (!id) return u; // どうしても拾えない時は原文返し
+      if (!id) return u;
       const clean = new URL("https://www.youtube.com/watch");
       clean.searchParams.set("v", id);
-      // 再生位置は維持（他のノイズは捨てる）
       const t = x.searchParams.get("t") || x.searchParams.get("start");
       if (t) clean.searchParams.set("t", t);
       return clean.toString();
@@ -673,7 +624,7 @@ export default class extends Controller {
 
     this._stopYouTubeTest?.();
 
-      let mount = this.hasYtTestTarget ? this.ytTestTarget : null;
+    let mount = this.hasYtTestTarget ? this.ytTestTarget : null;
     if (!mount) {
       mount = document.createElement("div");
       mount.className = "na-visually-hidden";
@@ -695,20 +646,13 @@ export default class extends Controller {
         },
         events: {
           onReady: (e) => {
-            e.target
-              .getIframe?.()
-              .setAttribute("allow", "autoplay; encrypted-media; fullscreen");
-            try {
-              e.target.playVideo();
-            } catch {}
+            e.target.getIframe?.().setAttribute("allow", "autoplay; encrypted-media; fullscreen");
+            try { e.target.playVideo(); } catch {}
             const t0 = performance.now();
             const waitPlay = () => {
               try {
                 if (e.target.getPlayerState?.() === YT.PlayerState.PLAYING) {
-                  this._ytInlineTimer = setTimeout(
-                    () => this._stopYouTubeTest(),
-                    previewMs
-                  );
+                  this._ytInlineTimer = setTimeout(() => this._stopYouTubeTest(), previewMs);
                   return resolve(true);
                 }
               } catch {}
@@ -724,21 +668,13 @@ export default class extends Controller {
   }
 
   _stopYouTubeTest() {
-    try {
-      clearTimeout(this._ytInlineTimer);
-    } catch {}
+    try { clearTimeout(this._ytInlineTimer); } catch {}
     this._ytInlineTimer = null;
-    try {
-      this._ytInline?.stopVideo();
-    } catch {}
-    try {
-      this._ytInline?.destroy();
-    } catch {}
+    try { this._ytInline?.stopVideo(); } catch {}
+    try { this._ytInline?.destroy(); } catch {}
     this._ytInline = null;
     if (this._ytTempMount) {
-      try {
-        this._ytTempMount.remove();
-      } catch {}
+      try { this._ytTempMount.remove(); } catch {}
       this._ytTempMount = null;
     }
   }

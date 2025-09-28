@@ -7,6 +7,18 @@ export default class extends Controller {
     duration: Number,
     musicUrl: String,
     ringSeconds: Number,
+    labelStart: String,
+    labelPause: String,
+    labelSnooze: String,
+    labelStop: String,
+    beforeunload: String,
+    notifTitle: String,
+    notifBody: String,
+    pressPlay: String,
+    inlineTitle: String,
+    inlineHint: String,
+    inlinePlay: String,
+    inlineClose: String,
   };
   static targets = [
     "display",
@@ -76,7 +88,8 @@ export default class extends Controller {
     this._beforeUnload = (e) => {
       if (this._paused) return;
       e.preventDefault();
-      e.returnValue = "アラーム作動中です。離れてもよいですか？";
+      e.returnValue =
+        this.beforeunloadValue || "Alarm is running. Leave this page?";
       return e.returnValue;
     };
 
@@ -202,7 +215,7 @@ export default class extends Controller {
     this._unbindBeforeUnload();
     this._releaseWakeLock();
     this._setRingingUI(false);
-    this._closeYT();
+    this._closeYTPrompt();
   }
 
   snooze(min = 5) {
@@ -284,7 +297,8 @@ export default class extends Controller {
         this._setRingingUI(true);
       }
     } catch {
-      this.displayTarget.textContent = "再生ボタン押して！";
+      this.displayTarget.textContent =
+        this.pressPlayValue || "Press play to start!";
     }
   }
 
@@ -294,14 +308,14 @@ export default class extends Controller {
     if (!startEl || !pauseEl) return;
 
     if (isRinging) {
-      startEl.textContent = "スヌーズ(+5分)";
+      startEl.textContent = this.labelSnoozeValue || "Snooze (+5m)";
       startEl.setAttribute("data-action", "alarm#snooze");
-      pauseEl.textContent = "停止";
+      pauseEl.textContent = this.labelStopValue || "Stop";
       pauseEl.setAttribute("data-action", "alarm#stop");
     } else {
-      startEl.textContent = "開始/再開";
+      startEl.textContent = this.labelStartValue || "Start/Resume";
       startEl.setAttribute("data-action", "alarm#start");
-      pauseEl.textContent = "一時停止";
+      pauseEl.textContent = this.labelPauseValue || "Pause";
       pauseEl.setAttribute("data-action", "alarm#pause");
     }
   }
@@ -431,7 +445,10 @@ export default class extends Controller {
           Notification.permission === "granted" &&
           document.visibilityState === "hidden"
         ) {
-          new Notification("⏰ アラーム", { body: "時間だよ", silent: false });
+          new Notification(this.notifTitleValue || "⏰ Alarm", {
+            body: this.notifBodyValue || "Time's up",
+            silent: false,
+          });
         }
       }
     } catch {}
@@ -444,7 +461,7 @@ export default class extends Controller {
     this._titleBlinker = setInterval(() => {
       document.title = document.title.startsWith("⏰")
         ? this._origTitle
-        : "⏰ 時間だよ";
+        : (this.notifTitleValue || "⏰ Alarm");
     }, 900);
     window.addEventListener("focus", () => this._stopAlerts(), { once: true });
   }
@@ -612,30 +629,35 @@ export default class extends Controller {
       maxWidth: "92%",
       textAlign: "center",
     });
+    const title = this.inlineTitleValue || "Play in this tab";
+    const hint =
+      this.inlineHintValue || "Autoplay was blocked. Tap the button.";
+    const labelPlay = this.inlinePlayValue || "Play";
+    const labelClose = this.inlineCloseValue || "Close";
     card.innerHTML = `
-      <div style="font-weight:600;margin-bottom:6px;">このタブで再生する</div>
-      <div style="font-size:12px;color:#555;margin-bottom:12px;">自動再生がブロックされたから、押してね</div>
-      <button id="yt-go" style="padding:.5rem 1rem;border:1px solid #60a5fa;border-radius:8px;background:#dbeafe;color:#1d4ed8;">再生</button>
-      <button id="yt-cancel" style="margin-left:.5rem;padding:.5rem 1rem;border:1px solid #ddd;border-radius:8px;background:#fff;">閉じる</button>
+      <div style="font-weight:600;margin-bottom:6px;">${title}</div>
+      <div style="font-size:12px;color:#555;margin-bottom:12px;">${hint}</div>
+      <button id="yt-go" style="padding:.5rem 1rem;border:1px solid #60a5fa;border-radius:8px;background:#dbeafe;">${labelPlay}</button>
+      <button id="yt-cancel" style="margin-left:.5rem;padding:.5rem 1rem;border:1px solid #ddd;border-radius:8px;background:#fff;">${labelClose}</button>
     `;
     wrap.appendChild(card);
     document.body.appendChild(wrap);
     this._ytPrompt = wrap;
 
-    const play = async () => {
+    const onGo = async () => {
       try {
         await onPlay?.();
       } finally {
         this._closeYTPrompt();
       }
     };
-    const close = () => this._closeYTPrompt();
+    const onClose = () => this._closeYTPrompt();
     card
       .querySelector("#yt-go")
-      ?.addEventListener("click", play, { once: true });
+      ?.addEventListener("click", onGo, { once: true });
     card
       .querySelector("#yt-cancel")
-      ?.addEventListener("click", close, { once: true });
+      ?.addEventListener("click", onClose, { once: true });
   }
   _closeYTPrompt() {
     this._ytPrompt?.remove();
@@ -755,7 +777,7 @@ export default class extends Controller {
         await this._beepOnce();
       }
     } catch (e) {
-      alert("再生がブロックされたかも。別のURLやブラウザを試して。");
+      alert(this.blockedAlertValue || "Playback may be blocked. Try another URL or browser.");
       console.error(e);
     }
   }
